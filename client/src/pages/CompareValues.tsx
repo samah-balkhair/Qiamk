@@ -8,17 +8,16 @@ import Footer from "@/components/Footer";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { MergeSortComparator, generateAllPairs, type ValueItem } from "@/lib/mergeSort";
+import { InteractiveMergeSort, type ValueItem, calculateExpectedComparisons } from "@/lib/mergeSort";
 
 export default function CompareValues() {
   const [, setLocation] = useLocation();
   const searchParams = new URLSearchParams(window.location.search);
   const sessionId = searchParams.get("session");
 
-  const [currentPairIndex, setCurrentPairIndex] = useState(0);
   const [definitions, setDefinitions] = useState<Record<string, string>>({});
-  const [comparator, setComparator] = useState<MergeSortComparator | null>(null);
-  const [allPairs, setAllPairs] = useState<Array<{ value1: ValueItem; value2: ValueItem }>>([]);
+  const [sorter, setSorter] = useState<InteractiveMergeSort | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0); // Force re-render
 
   const { data: selectedValues, isLoading } = trpc.values.getSelected.useQuery(
     { sessionId: sessionId! },
@@ -29,20 +28,17 @@ export default function CompareValues() {
   const addComparisonMutation = trpc.comparisons.add.useMutation();
   const updateScoreMutation = trpc.values.updateScore.useMutation();
 
-  // Initialize comparator and pairs when values are loaded
+  // Initialize sorter when values are loaded
   useEffect(() => {
-    if (selectedValues && selectedValues.length > 0) {
+    if (selectedValues && selectedValues.length > 0 && !sorter) {
       const values: ValueItem[] = selectedValues.map(sv => ({
         id: sv.id,
         name: sv.valueName || "",
         definition: sv.definition,
       }));
 
-      const comp = new MergeSortComparator(values);
-      const pairs = generateAllPairs(values);
-      
-      setComparator(comp);
-      setAllPairs(pairs);
+      const mergeSorter = new InteractiveMergeSort(values);
+      setSorter(mergeSorter);
 
       // Initialize definitions from database
       const defs: Record<string, string> = {};
@@ -52,18 +48,25 @@ export default function CompareValues() {
         }
       });
       setDefinitions(defs);
-    }
-  }, [selectedValues]);
 
-  const currentPair = useMemo(() => {
-    if (!allPairs || currentPairIndex >= allPairs.length) return null;
-    return allPairs[currentPairIndex];
-  }, [allPairs, currentPairIndex]);
+      // Log expected comparisons
+      const expected = calculateExpectedComparisons(values.length);
+      console.log(`Expected comparisons: ${expected} for ${values.length} values`);
+      console.log(`Actual comparisons: ${mergeSorter.getTotalComparisons()}`);
+    }
+  }, [selectedValues, sorter]);
+
+  const currentComparison = useMemo(() => {
+    if (!sorter) return null;
+    return sorter.getCurrentComparison();
+  }, [sorter, refreshKey]);
 
   const progress = useMemo(() => {
-    if (!allPairs || allPairs.length === 0) return 0;
-    return (currentPairIndex / allPairs.length) * 100;
-  }, [allPairs, currentPairIndex]);
+    if (!sorter) return 0;
+    const total = sorter.getTotalComparisons();
+    const current = sorter.getCurrentIndex();
+    return total > 0 ? (current / total) * 100 : 0;
+  }, [sorter, refreshKey]);
 
   const handleDefinitionChange = (valueId: string, definition: string) => {
     setDefinitions(prev => ({ ...prev, [valueId]: definition }));
@@ -84,38 +87,29 @@ export default function CompareValues() {
   };
 
   const handleChoice = async (selectedValueId: string) => {
-    if (!currentPair || !comparator || !sessionId) return;
+    if (!currentComparison || !sorter || !sessionId) return;
 
     try {
-      // Record choice in comparator
-      comparator.recordChoice(currentPair.value1.id, currentPair.value2.id, selectedValueId);
+      // Record choice in sorter
+      sorter.recordChoice(
+        currentComparison.value1.id,
+        currentComparison.value2.id,
+        selectedValueId
+      );
 
       // Save comparison to database
       await addComparisonMutation.mutateAsync({
         sessionId,
-        value1Id: currentPair.value1.id,
-        value2Id: currentPair.value2.id,
+        value1Id: currentComparison.value1.id,
+        value2Id: currentComparison.value2.id,
         selectedValueId,
-        round: currentPairIndex + 1,
+        round: sorter.getCurrentIndex(),
       });
 
-      // Move to next comparison
-      if (currentPairIndex < allPairs.length - 1) {
-        setCurrentPairIndex(prev => prev + 1);
-      } else {
-        // Check if we need tie-break comparisons
-        if (comparator.shouldContinue()) {
-          const tieBreakPairs = comparator.getTieBreakPairs();
-          if (tieBreakPairs.length > 0) {
-            setAllPairs(prev => [...prev, ...tieBreakPairs]);
-            toast.info("يوجد تعادل، سنحتاج لمزيد من المقارنات");
-            setCurrentPairIndex(prev => prev + 1);
-            return;
-          }
-        }
-
+      // Check if we're done
+      if (sorter.isComplete()) {
         // Save scores to database
-        const scores = comparator.getScores();
+        const scores = sorter.getScores();
         const scoresArray = Array.from(scores.entries());
         for (const [valueId, score] of scoresArray) {
           await updateScoreMutation.mutateAsync({
@@ -128,6 +122,9 @@ export default function CompareValues() {
         // Move to define values page
         toast.success("تم الانتهاء من المفاضلة!");
         setLocation(`/define-values?session=${sessionId}`);
+      } else {
+        // Force re-render to show next comparison
+        setRefreshKey(prev => prev + 1);
       }
     } catch (error) {
       toast.error("حدث خطأ أثناء حفظ الاختيار");
@@ -151,13 +148,16 @@ export default function CompareValues() {
     );
   }
 
-  if (!currentPair) {
+  if (!sorter || !currentComparison) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg">لا توجد مقارنات متاحة</p>
+        <p className="text-lg">جاري التحضير...</p>
       </div>
     );
   }
+
+  const totalComparisons = sorter.getTotalComparisons();
+  const currentIndex = sorter.getCurrentIndex();
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
@@ -171,10 +171,13 @@ export default function CompareValues() {
             </p>
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-slate-600">
-                <span>المقارنة {currentPairIndex + 1} من {allPairs.length}</span>
+                <span>المقارنة {currentIndex + 1} من {totalComparisons}</span>
                 <span>{Math.round(progress)}%</span>
               </div>
               <Progress value={progress} className="h-2" />
+              <p className="text-xs text-slate-500">
+                خوارزمية Merge Sort تقلل المقارنات من {Math.round((selectedValues?.length || 0) * ((selectedValues?.length || 0) - 1) / 2)} إلى {totalComparisons} فقط
+              </p>
             </div>
           </div>
 
@@ -183,11 +186,11 @@ export default function CompareValues() {
             {/* Value 1 */}
             <Card 
               className="border-2 hover:border-blue-500 cursor-pointer transition-all hover:shadow-lg"
-              onClick={() => handleChoice(currentPair.value1.id)}
+              onClick={() => handleChoice(currentComparison.value1.id)}
             >
               <CardHeader>
                 <CardTitle className="text-2xl text-center">
-                  {currentPair.value1.name}
+                  {currentComparison.value1.name}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -195,9 +198,9 @@ export default function CompareValues() {
                   <Label>تعريف القيمة (اختياري)</Label>
                   <Textarea
                     placeholder="كيف تعرّف هذه القيمة بالنسبة لك؟"
-                    value={definitions[currentPair.value1.id] || ""}
-                    onChange={(e) => handleDefinitionChange(currentPair.value1.id, e.target.value)}
-                    onBlur={() => handleDefinitionBlur(currentPair.value1.id)}
+                    value={definitions[currentComparison.value1.id] || ""}
+                    onChange={(e) => handleDefinitionChange(currentComparison.value1.id, e.target.value)}
+                    onBlur={() => handleDefinitionBlur(currentComparison.value1.id)}
                     onClick={(e) => e.stopPropagation()}
                     className="min-h-[100px]"
                   />
@@ -207,7 +210,7 @@ export default function CompareValues() {
                   size="lg"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleChoice(currentPair.value1.id);
+                    handleChoice(currentComparison.value1.id);
                   }}
                   disabled={addComparisonMutation.isPending}
                 >
@@ -219,11 +222,11 @@ export default function CompareValues() {
             {/* Value 2 */}
             <Card 
               className="border-2 hover:border-blue-500 cursor-pointer transition-all hover:shadow-lg"
-              onClick={() => handleChoice(currentPair.value2.id)}
+              onClick={() => handleChoice(currentComparison.value2.id)}
             >
               <CardHeader>
                 <CardTitle className="text-2xl text-center">
-                  {currentPair.value2.name}
+                  {currentComparison.value2.name}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -231,9 +234,9 @@ export default function CompareValues() {
                   <Label>تعريف القيمة (اختياري)</Label>
                   <Textarea
                     placeholder="كيف تعرّف هذه القيمة بالنسبة لك؟"
-                    value={definitions[currentPair.value2.id] || ""}
-                    onChange={(e) => handleDefinitionChange(currentPair.value2.id, e.target.value)}
-                    onBlur={() => handleDefinitionBlur(currentPair.value2.id)}
+                    value={definitions[currentComparison.value2.id] || ""}
+                    onChange={(e) => handleDefinitionChange(currentComparison.value2.id, e.target.value)}
+                    onBlur={() => handleDefinitionBlur(currentComparison.value2.id)}
                     onClick={(e) => e.stopPropagation()}
                     className="min-h-[100px]"
                   />
@@ -243,7 +246,7 @@ export default function CompareValues() {
                   size="lg"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleChoice(currentPair.value2.id);
+                    handleChoice(currentComparison.value2.id);
                   }}
                   disabled={addComparisonMutation.isPending}
                 >

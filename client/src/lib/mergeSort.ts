@@ -12,40 +12,129 @@ export interface ValueItem {
 export interface Comparison {
   value1: ValueItem;
   value2: ValueItem;
+  leftIndex: number;
+  rightIndex: number;
+  mergeLevel: number;
 }
 
-export class MergeSortComparator {
+interface MergeState {
+  left: ValueItem[];
+  right: ValueItem[];
+  leftIndex: number;
+  rightIndex: number;
+  result: ValueItem[];
+  level: number;
+}
+
+export class InteractiveMergeSort {
   private values: ValueItem[];
-  private scores: Map<string, number> = new Map();
-  private comparisons: Array<{ value1Id: string; value2Id: string; winnerId: string }> = [];
+  private comparisons: Comparison[] = [];
+  private currentComparisonIndex: number = 0;
+  private mergeStack: MergeState[] = [];
+  private finalResult: ValueItem[] = [];
+  private comparisonResults: Map<string, string> = new Map(); // key: "id1-id2", value: winnerId
 
   constructor(values: ValueItem[]) {
-    this.values = values;
+    this.values = [...values];
+    this.initializeMergeSort();
+  }
+
+  private initializeMergeSort() {
+    // Start the merge sort process
+    this.generateComparisons(this.values, 0);
+  }
+
+  private generateComparisons(arr: ValueItem[], level: number): void {
+    if (arr.length <= 1) return;
+
+    const mid = Math.floor(arr.length / 2);
+    const left = arr.slice(0, mid);
+    const right = arr.slice(mid);
+
+    // Recursively generate comparisons for left and right
+    this.generateComparisons(left, level + 1);
+    this.generateComparisons(right, level + 1);
+
+    // Generate merge comparisons
+    this.generateMergeComparisons(left, right, level);
+  }
+
+  private generateMergeComparisons(left: ValueItem[], right: ValueItem[], level: number): void {
+    let leftIndex = 0;
+    let rightIndex = 0;
+
+    while (leftIndex < left.length && rightIndex < right.length) {
+      const value1 = left[leftIndex];
+      const value2 = right[rightIndex];
+
+      // Add comparison
+      this.comparisons.push({
+        value1,
+        value2,
+        leftIndex,
+        rightIndex,
+        mergeLevel: level,
+      });
+
+      // For initialization, we don't know the result yet
+      // We'll simulate that left wins (this will be overridden by actual user choices)
+      leftIndex++;
+    }
+  }
+
+  getCurrentComparison(): Comparison | null {
+    if (this.currentComparisonIndex >= this.comparisons.length) {
+      return null;
+    }
+    return this.comparisons[this.currentComparisonIndex];
+  }
+
+  recordChoice(value1Id: string, value2Id: string, selectedValueId: string): void {
+    const key = `${value1Id}-${value2Id}`;
+    const reverseKey = `${value2Id}-${value1Id}`;
+    
+    this.comparisonResults.set(key, selectedValueId);
+    this.comparisonResults.set(reverseKey, selectedValueId);
+    
+    this.currentComparisonIndex++;
+  }
+
+  getTotalComparisons(): number {
+    return this.comparisons.length;
+  }
+
+  getCurrentIndex(): number {
+    return this.currentComparisonIndex;
+  }
+
+  isComplete(): boolean {
+    return this.currentComparisonIndex >= this.comparisons.length;
+  }
+
+  getComparisonResults(): Map<string, string> {
+    return new Map(this.comparisonResults);
+  }
+
+  // Calculate scores based on comparison results
+  getScores(): Map<string, number> {
+    const scores = new Map<string, number>();
+    
     // Initialize scores
-    values.forEach(v => this.scores.set(v.id, 0));
-  }
-
-  /**
-   * Record a comparison choice
-   */
-  recordChoice(value1Id: string, value2Id: string, selectedValueId: string) {
-    // Increment score for selected value
-    const currentScore = this.scores.get(selectedValueId) || 0;
-    this.scores.set(selectedValueId, currentScore + 1);
-
-    // Store the comparison result
-    this.comparisons.push({
-      value1Id,
-      value2Id,
-      winnerId: selectedValueId,
+    this.values.forEach(v => scores.set(v.id, 0));
+    
+    // Count wins
+    this.comparisonResults.forEach((winnerId) => {
+      const currentScore = scores.get(winnerId) || 0;
+      scores.set(winnerId, currentScore + 1);
     });
+    
+    return scores;
   }
 
-  /**
-   * Get top N values based on scores
-   */
   getTopValues(n: number = 10): Array<{ value: ValueItem; score: number }> {
-    const sorted = Array.from(this.scores.entries())
+    const scores = this.getScores();
+    
+    const sorted = Array.from(scores.entries())
       .map(([id, score]) => {
         const value = this.values.find(v => v.id === id);
         return { value: value!, score };
@@ -55,82 +144,13 @@ export class MergeSortComparator {
 
     return sorted.slice(0, n);
   }
-
-  /**
-   * Check if we need to continue comparisons
-   * Continue if the 10th and 11th values have the same score
-   */
-  shouldContinue(): boolean {
-    const sorted = Array.from(this.scores.entries())
-      .sort((a, b) => b[1] - a[1]);
-
-    if (sorted.length <= 10) return false;
-
-    const tenthScore = sorted[9][1];
-    const eleventhScore = sorted[10][1];
-
-    return tenthScore === eleventhScore;
-  }
-
-  /**
-   * Get pairs of values that are tied at the 10th position
-   */
-  getTieBreakPairs(): Array<{ value1: ValueItem; value2: ValueItem }> {
-    const sorted = Array.from(this.scores.entries())
-      .sort((a, b) => b[1] - a[1]);
-
-    if (sorted.length <= 10) return [];
-
-    const tenthScore = sorted[9][1];
-    
-    // Find all values with the same score as 10th place
-    const tiedValueIds = sorted
-      .filter(([, score]) => score === tenthScore)
-      .map(([id]) => id);
-
-    if (tiedValueIds.length <= 1) return [];
-
-    // Generate pairs between tied values
-    const pairs: Array<{ value1: ValueItem; value2: ValueItem }> = [];
-    for (let i = 0; i < tiedValueIds.length; i++) {
-      for (let j = i + 1; j < tiedValueIds.length; j++) {
-        const value1 = this.values.find(v => v.id === tiedValueIds[i]);
-        const value2 = this.values.find(v => v.id === tiedValueIds[j]);
-        
-        if (value1 && value2) {
-          pairs.push({ value1, value2 });
-        }
-      }
-    }
-
-    return pairs;
-  }
-
-  getScores(): Map<string, number> {
-    return new Map(this.scores);
-  }
-
-  getComparisons() {
-    return [...this.comparisons];
-  }
 }
 
 /**
- * Generate all possible pairs for comparison
- * This is a simpler approach than true merge sort, but ensures all comparisons are made
+ * Calculate expected number of comparisons for merge sort
  */
-export function generateAllPairs(values: ValueItem[]): Array<{ value1: ValueItem; value2: ValueItem }> {
-  const pairs: Array<{ value1: ValueItem; value2: ValueItem }> = [];
-  
-  for (let i = 0; i < values.length; i++) {
-    for (let j = i + 1; j < values.length; j++) {
-      pairs.push({
-        value1: values[i],
-        value2: values[j],
-      });
-    }
-  }
-  
-  return pairs;
+export function calculateExpectedComparisons(n: number): number {
+  if (n <= 1) return 0;
+  return Math.ceil(n * Math.log2(n));
 }
 
