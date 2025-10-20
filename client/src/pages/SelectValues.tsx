@@ -6,10 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import Footer from "@/components/Footer";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, X } from "lucide-react";
 
 export default function SelectValues() {
   const [, setLocation] = useLocation();
@@ -24,24 +22,36 @@ export default function SelectValues() {
   const addValueMutation = trpc.values.add.useMutation();
   const selectValuesMutation = trpc.values.selectValues.useMutation();
 
-  const filteredValues = useMemo(() => {
+  // Filter available values (exclude selected ones)
+  const availableValues = useMemo(() => {
     if (!allValues) return [];
-    if (!searchTerm) return allValues;
-    return allValues.filter(v => v.name.includes(searchTerm));
-  }, [allValues, searchTerm]);
+    return allValues.filter(v => !selectedValueIds.includes(v.id));
+  }, [allValues, selectedValueIds]);
 
-  const handleToggleValue = (valueId: string) => {
-    setSelectedValueIds(prev => {
-      if (prev.includes(valueId)) {
-        return prev.filter(id => id !== valueId);
-      } else {
-        if (prev.length >= 50) {
-          toast.error("لا يمكن اختيار أكثر من 50 قيمة");
-          return prev;
-        }
-        return [...prev, valueId];
-      }
-    });
+  // Filter by search term
+  const filteredAvailableValues = useMemo(() => {
+    if (!searchTerm) return availableValues;
+    return availableValues.filter(v => v.name.includes(searchTerm));
+  }, [availableValues, searchTerm]);
+
+  // Get selected values objects
+  const selectedValues = useMemo(() => {
+    if (!allValues) return [];
+    return selectedValueIds
+      .map(id => allValues.find(v => v.id === id))
+      .filter(Boolean) as typeof allValues;
+  }, [allValues, selectedValueIds]);
+
+  const handleSelectValue = (valueId: string) => {
+    if (selectedValueIds.length >= 50) {
+      toast.error("لا يمكن اختيار أكثر من 50 قيمة");
+      return;
+    }
+    setSelectedValueIds(prev => [...prev, valueId]);
+  };
+
+  const handleRemoveValue = (valueId: string) => {
+    setSelectedValueIds(prev => prev.filter(id => id !== valueId));
   };
 
   const handleAddCustomValue = async () => {
@@ -57,7 +67,9 @@ export default function SelectValues() {
       await refetchValues();
       
       // Auto-select the new value
-      setSelectedValueIds(prev => [...prev, newValue.id]);
+      if (selectedValueIds.length < 50) {
+        setSelectedValueIds(prev => [...prev, newValue.id]);
+      }
     } catch (error) {
       toast.error("حدث خطأ أثناء إضافة القيمة");
     }
@@ -103,23 +115,13 @@ export default function SelectValues() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
       <main className="flex-1 container py-12">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6">
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-4xl font-bold text-slate-900">اختر قيمك</h1>
             <p className="text-lg text-slate-600">
               اختر من 5 إلى 50 قيمة تعبر عنك، أو أضف قيمك الخاصة
             </p>
-            <div className="flex justify-center gap-4 items-center">
-              <Badge variant={selectedValueIds.length < 5 ? "destructive" : "default"} className="text-base px-4 py-1">
-                القيم المختارة: {selectedValueIds.length}
-              </Badge>
-              {selectedValueIds.length >= 5 && selectedValueIds.length <= 50 && (
-                <Badge variant="outline" className="text-base px-4 py-1 bg-green-50 text-green-700 border-green-300">
-                  ✓ جاهز للمتابعة
-                </Badge>
-              )}
-            </div>
           </div>
 
           {/* Search and Add Custom Value */}
@@ -159,43 +161,78 @@ export default function SelectValues() {
             </CardContent>
           </Card>
 
-          {/* Values Grid */}
-          <Card>
-            <CardHeader>
-              <CardTitle>القيم المتاحة ({filteredValues?.length || 0})</CardTitle>
-              <CardDescription>
-                اضغط على القيمة لاختيارها أو إلغاء اختيارها
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[500px] overflow-y-auto">
-                {filteredValues?.map((value) => {
-                  const isSelected = selectedValueIds.includes(value.id);
-                  return (
-                    <div
-                      key={value.id}
-                      className={`
-                        flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all
-                        ${isSelected 
-                          ? "border-blue-500 bg-blue-50" 
-                          : "border-slate-200 bg-white hover:border-slate-300"
-                        }
-                      `}
-                      onClick={() => handleToggleValue(value.id)}
-                    >
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => handleToggleValue(value.id)}
-                      />
-                      <Label className="cursor-pointer flex-1">
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Selected Values */}
+            <Card className="border-2 border-blue-500">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>القيم المختارة</span>
+                  <Badge 
+                    variant={selectedValueIds.length < 5 ? "destructive" : selectedValueIds.length > 50 ? "destructive" : "default"}
+                    className="text-base"
+                  >
+                    {selectedValueIds.length} / 50
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  {selectedValueIds.length < 5 
+                    ? `اختر ${5 - selectedValueIds.length} قيم على الأقل للمتابعة`
+                    : "يمكنك المتابعة أو إضافة المزيد من القيم"
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {selectedValues.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400">
+                    <p>لم تختر أي قيم بعد</p>
+                    <p className="text-sm mt-2">اختر من القيم المتاحة على اليسار</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2 max-h-[500px] overflow-y-auto">
+                    {selectedValues.map((value) => (
+                      <Badge
+                        key={value.id}
+                        variant="default"
+                        className="text-base px-3 py-2 cursor-pointer hover:bg-blue-700 transition-colors"
+                      >
                         {value.name}
-                      </Label>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                        <button
+                          onClick={() => handleRemoveValue(value.id)}
+                          className="mr-2 hover:text-red-200"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Available Values */}
+            <Card>
+              <CardHeader>
+                <CardTitle>القيم المتاحة ({filteredAvailableValues?.length || 0})</CardTitle>
+                <CardDescription>
+                  اضغط على القيمة لاختيارها
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2 max-h-[500px] overflow-y-auto">
+                  {filteredAvailableValues?.map((value) => (
+                    <Badge
+                      key={value.id}
+                      variant="outline"
+                      className="text-base px-3 py-2 cursor-pointer hover:bg-slate-100 hover:border-blue-500 transition-colors"
+                      onClick={() => handleSelectValue(value.id)}
+                    >
+                      {value.name}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Actions */}
           <div className="flex justify-center gap-4">
@@ -211,9 +248,16 @@ export default function SelectValues() {
               onClick={handleContinue}
               disabled={selectedValueIds.length < 5 || selectedValueIds.length > 50 || selectValuesMutation.isPending}
             >
-              {selectValuesMutation.isPending ? "جاري الحفظ..." : "المتابعة"}
+              {selectValuesMutation.isPending ? "جاري الحفظ..." : `المتابعة (${selectedValueIds.length} قيمة)`}
             </Button>
           </div>
+
+          {/* Info Messages */}
+          {selectedValueIds.length >= 5 && selectedValueIds.length <= 50 && (
+            <div className="text-center text-sm text-green-600 bg-green-50 p-4 rounded-lg border border-green-200">
+              <p>✓ رائع! لديك {selectedValueIds.length} قيمة. يمكنك المتابعة الآن أو إضافة المزيد.</p>
+            </div>
+          )}
         </div>
       </main>
 
