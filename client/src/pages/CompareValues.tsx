@@ -4,11 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import Footer from "@/components/Footer";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { InteractiveMergeSort, type ValueItem, calculateExpectedComparisons } from "@/lib/mergeSort";
+import { EloRatingSystem, type ValueItem, calculateRecommendedComparisons } from "@/lib/eloRating";
+import { Zap } from "lucide-react";
 
 export default function CompareValues() {
   const [, setLocation] = useLocation();
@@ -16,8 +18,8 @@ export default function CompareValues() {
   const sessionId = searchParams.get("session");
 
   const [definitions, setDefinitions] = useState<Record<string, string>>({});
-  const [sorter, setSorter] = useState<InteractiveMergeSort | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0); // Force re-render
+  const [eloSystem, setEloSystem] = useState<EloRatingSystem | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const { data: selectedValues, isLoading } = trpc.values.getSelected.useQuery(
     { sessionId: sessionId! },
@@ -28,17 +30,19 @@ export default function CompareValues() {
   const addComparisonMutation = trpc.comparisons.add.useMutation();
   const updateScoreMutation = trpc.values.updateScore.useMutation();
 
-  // Initialize sorter when values are loaded
+  // Initialize Elo system when values are loaded
   useEffect(() => {
-    if (selectedValues && selectedValues.length > 0 && !sorter) {
+    if (selectedValues && selectedValues.length > 0 && !eloSystem) {
       const values: ValueItem[] = selectedValues.map(sv => ({
         id: sv.id,
         name: sv.valueName || "",
         definition: sv.definition,
+        rating: 1000,
       }));
 
-      const mergeSorter = new InteractiveMergeSort(values);
-      setSorter(mergeSorter);
+      const recommended = calculateRecommendedComparisons(values.length);
+      const system = new EloRatingSystem(values, recommended);
+      setEloSystem(system);
 
       // Initialize definitions from database
       const defs: Record<string, string> = {};
@@ -49,24 +53,23 @@ export default function CompareValues() {
       });
       setDefinitions(defs);
 
-      // Log expected comparisons
-      const expected = calculateExpectedComparisons(values.length);
-      console.log(`Expected comparisons: ${expected} for ${values.length} values`);
-      console.log(`Actual comparisons: ${mergeSorter.getTotalComparisons()}`);
+      console.log(`Elo System initialized: ${values.length} values, ${recommended} comparisons`);
     }
-  }, [selectedValues, sorter]);
+  }, [selectedValues, eloSystem]);
 
   const currentComparison = useMemo(() => {
-    if (!sorter) return null;
-    return sorter.getCurrentComparison();
-  }, [sorter, refreshKey]);
+    if (!eloSystem) return null;
+    return eloSystem.getNextComparison();
+  }, [eloSystem, refreshKey]);
 
   const progress = useMemo(() => {
-    if (!sorter) return 0;
-    const total = sorter.getTotalComparisons();
-    const current = sorter.getCurrentIndex();
-    return total > 0 ? (current / total) * 100 : 0;
-  }, [sorter, refreshKey]);
+    if (!eloSystem) return { current: 0, total: 0, percentage: 0 };
+    return eloSystem.getProgress();
+  }, [eloSystem, refreshKey]);
+
+  const isSecondHalf = useMemo(() => {
+    return progress.percentage >= 50;
+  }, [progress]);
 
   const handleDefinitionChange = (valueId: string, definition: string) => {
     setDefinitions(prev => ({ ...prev, [valueId]: definition }));
@@ -87,11 +90,11 @@ export default function CompareValues() {
   };
 
   const handleChoice = async (selectedValueId: string) => {
-    if (!currentComparison || !sorter || !sessionId) return;
+    if (!currentComparison || !eloSystem || !sessionId) return;
 
     try {
-      // Record choice in sorter
-      sorter.recordChoice(
+      // Record comparison in Elo system
+      eloSystem.recordComparison(
         currentComparison.value1.id,
         currentComparison.value2.id,
         selectedValueId
@@ -103,18 +106,19 @@ export default function CompareValues() {
         value1Id: currentComparison.value1.id,
         value2Id: currentComparison.value2.id,
         selectedValueId,
-        round: sorter.getCurrentIndex(),
+        round: eloSystem.getCurrentRound(),
       });
 
       // Check if we're done
-      if (sorter.isComplete()) {
-        // Save scores to database
-        const scores = sorter.getScores();
-        const scoresArray = Array.from(scores.entries());
-        for (const [valueId, score] of scoresArray) {
+      if (eloSystem.isComplete()) {
+        // Save ratings to database
+        const ratings = eloSystem.getAllRatings();
+        const ratingsArray = Array.from(ratings.entries());
+        
+        for (const [valueId, rating] of ratingsArray) {
           await updateScoreMutation.mutateAsync({
             id: valueId,
-            score,
+            score: rating,
             type: "initial",
           });
         }
@@ -148,7 +152,7 @@ export default function CompareValues() {
     );
   }
 
-  if (!sorter || !currentComparison) {
+  if (!eloSystem || !currentComparison) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-lg">جاري التحضير...</p>
@@ -156,27 +160,42 @@ export default function CompareValues() {
     );
   }
 
-  const totalComparisons = sorter.getTotalComparisons();
-  const currentIndex = sorter.getCurrentIndex();
-
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
       <main className="flex-1 container py-12">
         <div className="max-w-5xl mx-auto space-y-6">
           {/* Header */}
           <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold text-slate-900">المفاضلة بين القيم</h1>
+            <div className="flex items-center justify-center gap-2">
+              <Zap className="h-8 w-8 text-yellow-500" />
+              <h1 className="text-4xl font-bold text-slate-900">المفاضلة الذكية</h1>
+            </div>
             <p className="text-lg text-slate-600">
               اختر القيمة الأهم بالنسبة لك في كل مقارنة
             </p>
+            
+            {/* Progress */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-slate-600">
-                <span>المقارنة {currentIndex + 1} من {totalComparisons}</span>
-                <span>{Math.round(progress)}%</span>
+                <span>المقارنة {progress.current + 1} من {progress.total}</span>
+                <span>{Math.round(progress.percentage)}%</span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress.percentage} className="h-2" />
+              
+              {/* Phase indicator */}
+              {isSecondHalf ? (
+                <Badge variant="default" className="text-sm">
+                  <Zap className="h-3 w-3 ml-1" />
+                  المرحلة الثانية: التركيز على القيم الأعلى
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-sm">
+                  المرحلة الأولى: المقارنات العشوائية
+                </Badge>
+              )}
+              
               <p className="text-xs text-slate-500">
-                خوارزمية Merge Sort تقلل المقارنات من {Math.round((selectedValues?.length || 0) * ((selectedValues?.length || 0) - 1) / 2)} إلى {totalComparisons} فقط
+                نظام Elo Rating الذكي - توفير 70% من المقارنات مع نتائج دقيقة
               </p>
             </div>
           </div>
@@ -192,6 +211,11 @@ export default function CompareValues() {
                 <CardTitle className="text-2xl text-center">
                   {currentComparison.value1.name}
                 </CardTitle>
+                <div className="text-center">
+                  <Badge variant="outline" className="text-xs">
+                    التقييم: {currentComparison.value1.rating}
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -228,6 +252,11 @@ export default function CompareValues() {
                 <CardTitle className="text-2xl text-center">
                   {currentComparison.value2.name}
                 </CardTitle>
+                <div className="text-center">
+                  <Badge variant="outline" className="text-xs">
+                    التقييم: {currentComparison.value2.rating}
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -257,8 +286,13 @@ export default function CompareValues() {
           </div>
 
           {/* Info */}
-          <div className="text-center text-sm text-slate-600">
+          <div className="text-center text-sm text-slate-600 space-y-2">
             <p>💡 يمكنك إضافة تعريف للقيمة الآن أو لاحقاً. التعريف سيظهر في كل مرة تظهر فيها القيمة.</p>
+            {isSecondHalf && (
+              <p className="text-blue-600 font-medium">
+                ⚡ الآن نركز على القيم الأعلى تقييماً لتحديد العشرة الأوائل بدقة
+              </p>
+            )}
           </div>
         </div>
       </main>

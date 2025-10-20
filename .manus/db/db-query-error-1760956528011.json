@@ -1,0 +1,11 @@
+{
+  "query": "SELECT sv.id, v.name, sv.score, sv.definition \nFROM selected_values sv\nJOIN values v ON sv.value_id = v.id\nWHERE sv.session_id = '0wMRam3E11CfNoQ5AQKyP'\nORDER BY sv.score DESC\nLIMIT 15;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4B4rWvbyJeCXtYf.a0b7d1ccecde --database Guo3G4zpzHq3xTV4JvNADi --execute SELECT sv.id, v.name, sv.score, sv.definition \nFROM selected_values sv\nJOIN values v ON sv.value_id = v.id\nWHERE sv.session_id = '0wMRam3E11CfNoQ5AQKyP'\nORDER BY sv.score DESC\nLIMIT 15;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your TiDB version for the right syntax to use line 3 column 12 near \"values v ON sv.value_id = v.id",
+    "WHERE sv.session_id = '0wMRam3E11CfNoQ5AQKyP'",
+    "ORDER BY sv.score DESC",
+    "LIMIT 15\""
+  ]
+}

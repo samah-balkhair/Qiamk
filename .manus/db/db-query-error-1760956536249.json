@@ -1,0 +1,8 @@
+{
+  "query": "SELECT * FROM comparisons WHERE session_id = '0wMRam3E11CfNoQ5AQKyP' ORDER BY round DESC LIMIT 10",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4B4rWvbyJeCXtYf.a0b7d1ccecde --database Guo3G4zpzHq3xTV4JvNADi --execute SELECT * FROM comparisons WHERE session_id = '0wMRam3E11CfNoQ5AQKyP' ORDER BY round DESC LIMIT 10",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1146 (42S02) at line 1: Table 'guo3g4zpzhq3xtv4jvnadi.comparisons' doesn't exist"
+  ]
+}
