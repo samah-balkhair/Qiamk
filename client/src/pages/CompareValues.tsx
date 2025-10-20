@@ -5,12 +5,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import Footer from "@/components/Footer";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { EloRatingSystem, type ValueItem, calculateRecommendedComparisons } from "@/lib/eloRating";
-import { Zap } from "lucide-react";
+import { 
+  EloRatingSystem, 
+  type ValueItem, 
+  calculateRecommendedComparisons,
+  restoreEloSystem,
+  type SavedComparison
+} from "@/lib/eloRating";
+import { Zap, RotateCcw } from "lucide-react";
 
 export default function CompareValues() {
   const [, setLocation] = useLocation();
@@ -20,29 +27,60 @@ export default function CompareValues() {
   const [definitions, setDefinitions] = useState<Record<string, string>>({});
   const [eloSystem, setEloSystem] = useState<EloRatingSystem | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isResuming, setIsResuming] = useState(false);
 
   const { data: selectedValues, isLoading } = trpc.values.getSelected.useQuery(
     { sessionId: sessionId! },
     { enabled: !!sessionId }
   );
 
+  const { data: savedComparisons } = trpc.comparisons.getAll.useQuery(
+    { sessionId: sessionId! },
+    { enabled: !!sessionId }
+  );
+
+  const { data: session } = trpc.sessions.get.useQuery(
+    { id: sessionId! },
+    { enabled: !!sessionId }
+  );
+
   const updateDefinitionMutation = trpc.values.updateDefinition.useMutation();
   const addComparisonMutation = trpc.comparisons.add.useMutation();
   const updateScoreMutation = trpc.values.updateScore.useMutation();
+  const updateSessionMutation = trpc.sessions.updateProgress.useMutation();
 
-  // Initialize Elo system when values are loaded
+  // Initialize or restore Elo system
   useEffect(() => {
     if (selectedValues && selectedValues.length > 0 && !eloSystem) {
       const values: ValueItem[] = selectedValues.map(sv => ({
         id: sv.id,
         name: sv.valueName || "",
         definition: sv.definition,
-        rating: 1000,
+        rating: sv.initialScore || 1000,
       }));
 
       const recommended = calculateRecommendedComparisons(values.length);
-      const system = new EloRatingSystem(values, recommended);
-      setEloSystem(system);
+
+      // Check if we have saved comparisons to resume from
+      if (savedComparisons && savedComparisons.length > 0) {
+        setIsResuming(true);
+        const savedComparisonData: SavedComparison[] = savedComparisons.map(c => ({
+          value1Id: c.value1Id,
+          value2Id: c.value2Id,
+          winnerId: c.selectedValueId,
+          round: c.comparisonRound,
+        }));
+
+        const restoredSystem = restoreEloSystem(values, savedComparisonData, recommended);
+        setEloSystem(restoredSystem);
+        
+        toast.success(`تم استئناف الجلسة! أكملت ${savedComparisons.length} مقارنة`);
+        setTimeout(() => setIsResuming(false), 2000);
+      } else {
+        // Start fresh
+        const system = new EloRatingSystem(values, recommended);
+        setEloSystem(system);
+      }
 
       // Initialize definitions from database
       const defs: Record<string, string> = {};
@@ -55,7 +93,7 @@ export default function CompareValues() {
 
       console.log(`Elo System initialized: ${values.length} values, ${recommended} comparisons`);
     }
-  }, [selectedValues, eloSystem]);
+  }, [selectedValues, savedComparisons, eloSystem]);
 
   const currentComparison = useMemo(() => {
     if (!eloSystem) return null;
@@ -107,6 +145,13 @@ export default function CompareValues() {
         value2Id: currentComparison.value2.id,
         selectedValueId,
         round: eloSystem.getCurrentRound(),
+      });
+
+      // Update session progress
+      await updateSessionMutation.mutateAsync({
+        id: sessionId,
+        comparisonsCompleted: eloSystem.getCurrentRound(),
+        totalComparisons: progress.total,
       });
 
       // Check if we're done
@@ -174,6 +219,16 @@ export default function CompareValues() {
               اختر القيمة الأهم بالنسبة لك في كل مقارنة
             </p>
             
+            {/* Resume indicator */}
+            {isResuming && (
+              <Alert className="max-w-md mx-auto">
+                <RotateCcw className="h-4 w-4" />
+                <AlertDescription>
+                  تم استئناف جلستك السابقة بنجاح
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {/* Progress */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-slate-600">
@@ -195,7 +250,7 @@ export default function CompareValues() {
               )}
               
               <p className="text-xs text-slate-500">
-                نظام Elo Rating الذكي - توفير 70% من المقارنات مع نتائج دقيقة
+                نظام Elo Rating الذكي - يمكنك إغلاق المتصفح والعودة لاحقاً
               </p>
             </div>
           </div>
@@ -293,6 +348,9 @@ export default function CompareValues() {
                 ⚡ الآن نركز على القيم الأعلى تقييماً لتحديد العشرة الأوائل بدقة
               </p>
             )}
+            <p className="text-green-600 font-medium">
+              💾 تقدمك محفوظ تلقائياً - يمكنك العودة في أي وقت
+            </p>
           </div>
         </div>
       </main>

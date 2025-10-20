@@ -57,6 +57,20 @@ export const appRouter = router({
         });
         return { success: true };
       }),
+
+    updateProgress: protectedProcedure
+      .input(z.object({ 
+        id: z.string(),
+        comparisonsCompleted: z.number(),
+        totalComparisons: z.number()
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateSession(input.id, { 
+          comparisonsCompleted: input.comparisonsCompleted,
+          totalComparisons: input.totalComparisons
+        });
+        return { success: true };
+      }),
   }),
 
   values: router({

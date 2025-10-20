@@ -25,6 +25,8 @@ export const sessions = mysqlTable("sessions", {
   userId: varchar("userId", { length: 64 }).notNull(),
   currentPage: int("currentPage").default(1).notNull(),
   status: mysqlEnum("status", ["active", "completed"]).default("active").notNull(),
+  comparisonsCompleted: int("comparisonsCompleted").default(0),
+  totalComparisons: int("totalComparisons").default(0),
   createdAt: timestamp("createdAt").defaultNow(),
   completedAt: timestamp("completedAt"),
 });

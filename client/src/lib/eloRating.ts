@@ -1,6 +1,7 @@
 /**
  * Elo Rating System for Value Comparison
  * Efficiently ranks values with minimal comparisons
+ * Supports session resumption
  */
 
 export interface ValueItem {
@@ -16,32 +17,62 @@ export interface Comparison {
   round: number;
 }
 
+export interface SavedComparison {
+  value1Id: string;
+  value2Id: string;
+  winnerId: string;
+  round: number;
+}
+
+export interface EloSystemState {
+  values: ValueItem[];
+  comparisons: SavedComparison[];
+  currentRound: number;
+  comparedPairs: string[];
+}
+
 export class EloRatingSystem {
   private values: ValueItem[];
-  private comparisons: Array<{
-    value1Id: string;
-    value2Id: string;
-    winnerId: string;
-    round: number;
-  }> = [];
+  private comparisons: SavedComparison[] = [];
   private currentRound: number = 0;
   private readonly K_FACTOR = 32; // Standard Elo K-factor
   private readonly INITIAL_RATING = 1000;
   private readonly TARGET_COMPARISONS: number;
   private comparedPairs: Set<string> = new Set();
 
-  constructor(values: ValueItem[], targetComparisons?: number) {
-    // Initialize all values with base rating
-    this.values = values.map(v => ({
-      ...v,
-      rating: this.INITIAL_RATING,
-    }));
+  constructor(values: ValueItem[], targetComparisons?: number, savedState?: EloSystemState) {
+    if (savedState) {
+      // Resume from saved state
+      this.values = savedState.values;
+      this.comparisons = savedState.comparisons;
+      this.currentRound = savedState.currentRound;
+      this.comparedPairs = new Set(savedState.comparedPairs);
+    } else {
+      // Initialize new system
+      this.values = values.map(v => ({
+        ...v,
+        rating: this.INITIAL_RATING,
+      }));
+    }
 
     // Calculate target comparisons: 3-4 comparisons per value
     this.TARGET_COMPARISONS = targetComparisons || Math.min(
       values.length * 3,
-      Math.floor((values.length * (values.length - 1)) / 4)
+      Math.floor((values.length * (values.length - 1)) / 4),
+      150 // Maximum 150 comparisons
     );
+  }
+
+  /**
+   * Export current state for saving
+   */
+  exportState(): EloSystemState {
+    return {
+      values: this.values,
+      comparisons: this.comparisons,
+      currentRound: this.currentRound,
+      comparedPairs: Array.from(this.comparedPairs),
+    };
   }
 
   /**
@@ -252,5 +283,57 @@ export function calculateRecommendedComparisons(valueCount: number): number {
     Math.floor((valueCount * (valueCount - 1)) / 4),
     150 // Maximum 150 comparisons
   );
+}
+
+/**
+ * Restore Elo system from saved comparisons
+ */
+export function restoreEloSystem(
+  values: ValueItem[],
+  savedComparisons: SavedComparison[],
+  targetComparisons: number
+): EloRatingSystem {
+  // Initialize values with base rating
+  const initialValues = values.map(v => ({
+    ...v,
+    rating: 1000,
+  }));
+
+  // Replay all comparisons to restore ratings
+  const valueMap = new Map(initialValues.map(v => [v.id, v]));
+  const comparedPairs = new Set<string>();
+
+  for (const comparison of savedComparisons) {
+    const value1 = valueMap.get(comparison.value1Id);
+    const value2 = valueMap.get(comparison.value2Id);
+
+    if (value1 && value2) {
+      // Calculate expected scores
+      const expectedScore1 = 1 / (1 + Math.pow(10, (value2.rating - value1.rating) / 400));
+      const expectedScore2 = 1 - expectedScore1;
+
+      // Actual scores
+      const actualScore1 = comparison.winnerId === value1.id ? 1 : 0;
+      const actualScore2 = comparison.winnerId === value2.id ? 1 : 0;
+
+      // Update ratings
+      value1.rating = Math.round(value1.rating + 32 * (actualScore1 - expectedScore1));
+      value2.rating = Math.round(value2.rating + 32 * (actualScore2 - expectedScore2));
+
+      // Track compared pairs
+      const pairKey = [value1.id, value2.id].sort().join('-');
+      comparedPairs.add(pairKey);
+    }
+  }
+
+  // Create state object
+  const state: EloSystemState = {
+    values: Array.from(valueMap.values()),
+    comparisons: savedComparisons,
+    currentRound: savedComparisons.length,
+    comparedPairs: Array.from(comparedPairs),
+  };
+
+  return new EloRatingSystem(values, targetComparisons, state);
 }
 
