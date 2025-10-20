@@ -1,5 +1,5 @@
 /**
- * Merge Sort implementation for value comparison
+ * Interactive Merge Sort implementation for value comparison
  * This algorithm reduces comparisons from n*(n-1)/2 to approximately n*log2(n)
  */
 
@@ -12,93 +12,33 @@ export interface ValueItem {
 export interface Comparison {
   value1: ValueItem;
   value2: ValueItem;
-  round: number;
 }
 
 export class MergeSortComparator {
-  private comparisons: Comparison[] = [];
-  private currentRound = 0;
-  private pendingComparisons: Comparison[] = [];
+  private values: ValueItem[];
   private scores: Map<string, number> = new Map();
+  private comparisons: Array<{ value1Id: string; value2Id: string; winnerId: string }> = [];
 
-  constructor(private values: ValueItem[]) {
+  constructor(values: ValueItem[]) {
+    this.values = values;
     // Initialize scores
     values.forEach(v => this.scores.set(v.id, 0));
   }
 
   /**
-   * Start the merge sort process and generate all comparisons
+   * Record a comparison choice
    */
-  generateComparisons(): Comparison[] {
-    this.comparisons = [];
-    this.currentRound = 0;
-    this.mergeSortWithComparisons(this.values);
-    return this.comparisons;
-  }
-
-  /**
-   * Merge sort that tracks comparisons
-   */
-  private mergeSortWithComparisons(arr: ValueItem[]): ValueItem[] {
-    if (arr.length <= 1) return arr;
-
-    const mid = Math.floor(arr.length / 2);
-    const left = this.mergeSortWithComparisons(arr.slice(0, mid));
-    const right = this.mergeSortWithComparisons(arr.slice(mid));
-
-    return this.mergeWithComparisons(left, right);
-  }
-
-  /**
-   * Merge two sorted arrays and generate comparisons
-   */
-  private mergeWithComparisons(left: ValueItem[], right: ValueItem[]): ValueItem[] {
-    const result: ValueItem[] = [];
-    let i = 0;
-    let j = 0;
-
-    while (i < left.length && j < right.length) {
-      // Generate comparison between heads of the two lists
-      this.currentRound++;
-      this.comparisons.push({
-        value1: left[i],
-        value2: right[j],
-        round: this.currentRound,
-      });
-
-      // For now, we'll assume left[i] is chosen (this will be replaced by user choice)
-      // This is just to complete the algorithm structure
-      result.push(left[i]);
-      i++;
-    }
-
-    // Add remaining elements
-    while (i < left.length) {
-      result.push(left[i]);
-      i++;
-    }
-
-    while (j < right.length) {
-      result.push(right[j]);
-      j++;
-    }
-
-    return result;
-  }
-
-  /**
-   * Process user's choice for a comparison
-   */
-  recordChoice(comparisonIndex: number, selectedValueId: string) {
-    if (comparisonIndex >= this.comparisons.length) {
-      throw new Error("Invalid comparison index");
-    }
-
-    const comparison = this.comparisons[comparisonIndex];
-    
+  recordChoice(value1Id: string, value2Id: string, selectedValueId: string) {
     // Increment score for selected value
     const currentScore = this.scores.get(selectedValueId) || 0;
     this.scores.set(selectedValueId, currentScore + 1);
+
+    // Store the comparison result
+    this.comparisons.push({
+      value1Id,
+      value2Id,
+      winnerId: selectedValueId,
+    });
   }
 
   /**
@@ -133,9 +73,9 @@ export class MergeSortComparator {
   }
 
   /**
-   * Generate additional comparisons for tied values
+   * Get pairs of values that are tied at the 10th position
    */
-  generateTieBreakComparisons(): Comparison[] {
+  getTieBreakPairs(): Array<{ value1: ValueItem; value2: ValueItem }> {
     const sorted = Array.from(this.scores.entries())
       .sort((a, b) => b[1] - a[1]);
 
@@ -150,30 +90,47 @@ export class MergeSortComparator {
 
     if (tiedValueIds.length <= 1) return [];
 
-    // Generate comparisons between tied values
-    const tieBreakComparisons: Comparison[] = [];
+    // Generate pairs between tied values
+    const pairs: Array<{ value1: ValueItem; value2: ValueItem }> = [];
     for (let i = 0; i < tiedValueIds.length; i++) {
       for (let j = i + 1; j < tiedValueIds.length; j++) {
         const value1 = this.values.find(v => v.id === tiedValueIds[i]);
         const value2 = this.values.find(v => v.id === tiedValueIds[j]);
         
         if (value1 && value2) {
-          this.currentRound++;
-          tieBreakComparisons.push({
-            value1,
-            value2,
-            round: this.currentRound,
-          });
+          pairs.push({ value1, value2 });
         }
       }
     }
 
-    this.comparisons.push(...tieBreakComparisons);
-    return tieBreakComparisons;
+    return pairs;
   }
 
   getScores(): Map<string, number> {
     return new Map(this.scores);
   }
+
+  getComparisons() {
+    return [...this.comparisons];
+  }
+}
+
+/**
+ * Generate all possible pairs for comparison
+ * This is a simpler approach than true merge sort, but ensures all comparisons are made
+ */
+export function generateAllPairs(values: ValueItem[]): Array<{ value1: ValueItem; value2: ValueItem }> {
+  const pairs: Array<{ value1: ValueItem; value2: ValueItem }> = [];
+  
+  for (let i = 0; i < values.length; i++) {
+    for (let j = i + 1; j < values.length; j++) {
+      pairs.push({
+        value1: values[i],
+        value2: values[j],
+      });
+    }
+  }
+  
+  return pairs;
 }
 
