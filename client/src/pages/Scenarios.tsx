@@ -228,7 +228,7 @@ export default function Scenarios() {
           <Card className="border-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                {isGenerating && <Loader2 className="h-5 w-5 animate-spin" />}
+                {isGenerating && <Loader2 className="h-5 w-5 animate-spin ml-2" />}
                 السيناريو
               </CardTitle>
             </CardHeader>

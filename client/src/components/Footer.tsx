@@ -13,7 +13,7 @@ export default function Footer() {
             <img 
               src="/logo.png" 
               alt="Logo" 
-              className="h-16 w-auto"
+              className="h-16 w-auto mx-auto"
             />
           </a>
           <p className="text-sm text-muted-foreground">@SamahBalkhair2025</p>

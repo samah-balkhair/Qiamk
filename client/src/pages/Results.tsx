@@ -208,7 +208,7 @@ export default function Results() {
           <Card className="border-2 border-blue-200">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5" />
+                <Mail className="h-5 w-5 ml-2" />
                 احصل على التقرير التفصيلي
               </CardTitle>
               <CardDescription>

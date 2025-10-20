@@ -130,12 +130,12 @@ export default function SelectValues() {
             <CardContent className="space-y-4">
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute right-3 top-3 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="ابحث عن قيمة..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pr-10"
+                    className="pl-10"
                   />
                 </div>
               </div>
@@ -152,7 +152,7 @@ export default function SelectValues() {
                   disabled={addValueMutation.isPending}
                   variant="outline"
                 >
-                  <Plus className="h-4 w-4 ml-2" />
+                  <Plus className="h-4 w-4 mr-2" />
                   إضافة
                 </Button>
               </div>
