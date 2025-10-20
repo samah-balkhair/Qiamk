@@ -159,10 +159,16 @@ export default function Results() {
       return;
     }
 
+    if (!top3Values || top3Values.length < 3) {
+      toast.error("يجب أن يكون لديك 3 قيم على الأقل");
+      return;
+    }
+
     setIsSendingEmail(true);
 
     try {
-      const response = await fetch("/api/send-email-report", {
+      // 1. Send email report
+      const emailResponse = await fetch("/api/send-email-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -173,16 +179,56 @@ export default function Results() {
         }),
       });
 
-      const data = await response.json();
+      const emailData = await emailResponse.json();
 
-      if (!response.ok) {
-        console.error("Email API error:", data);
-        throw new Error(data.error || "Failed to send email");
+      if (!emailResponse.ok) {
+        console.error("Email API error:", emailData);
+        throw new Error(emailData.error || "Failed to send email");
       }
 
-      console.log("Email sent successfully:", data);
+      console.log("Email sent successfully:", emailData);
+
+      // 2. Send to GoHighLevel
+      try {
+        const ghlResponse = await fetch("/api/send-to-ghl", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            value1: `${top3Values[0].valueName}: ${top3Values[0].definition}`,
+            value2: `${top3Values[1].valueName}: ${top3Values[1].definition}`,
+            value3: `${top3Values[2].valueName}: ${top3Values[2].definition}`,
+          }),
+        });
+
+        if (ghlResponse.ok) {
+          console.log("Successfully sent to GoHighLevel");
+        } else {
+          console.error("Failed to send to GoHighLevel");
+        }
+      } catch (ghlError) {
+        console.error("GoHighLevel error:", ghlError);
+        // Don't fail the whole process if GHL fails
+      }
+
+      // 3. Clean up session data (keep final results)
+      try {
+        const cleanupResponse = await fetch("/api/cleanup-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        });
+        
+        if (cleanupResponse.ok) {
+          console.log("Session data cleaned up");
+        }
+      } catch (cleanupError) {
+        console.error("Cleanup error:", cleanupError);
+        // Don't fail if cleanup fails
+      }
+
       setEmailSent(true);
-      toast.success("تم إرسال التقرير إلى بريدك الإلكتروني!");
+      toast.success("تم إرسال التقرير بنجاح!");
     } catch (error: any) {
       console.error("Failed to send email:", error);
       const errorMessage = error.message || "حدث خطأ أثناء إرسال البريد الإلكتروني";

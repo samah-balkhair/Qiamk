@@ -75,6 +75,13 @@ export const appRouter = router({
     getCompletedCount: publicProcedure.query(async () => {
       return await db.getCompletedSessionsCount();
     }),
+
+    cleanupSession: protectedProcedure
+      .input(z.object({ sessionId: z.string() }))
+      .mutation(async ({ input }) => {
+        await db.cleanupSessionData(input.sessionId);
+        return { success: true };
+      }),
   }),
 
   values: router({

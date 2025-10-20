@@ -299,3 +299,29 @@ export async function getCompletedSessionsCount(): Promise<number> {
   }
 }
 
+
+// Cleanup session data (keep final results)
+export async function cleanupSessionData(sessionId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  try {
+    // Delete scenarios
+    await db.delete(scenarios).where(eq(scenarios.sessionId, sessionId));
+    
+    // Delete initial comparisons
+    await db.delete(initialComparisons).where(eq(initialComparisons.sessionId, sessionId));
+    
+    // Delete selected values
+    await db.delete(selectedValues).where(eq(selectedValues.sessionId, sessionId));
+    
+    // Delete session
+    await db.delete(sessions).where(eq(sessions.id, sessionId));
+    
+    console.log(`[Database] Cleaned up session data for: ${sessionId}`);
+  } catch (error) {
+    console.error("[Database] Failed to cleanup session data:", error);
+    throw error;
+  }
+}
+

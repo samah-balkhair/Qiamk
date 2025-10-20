@@ -48,6 +48,9 @@ async function startServer() {
   
   const { testEmail } = await import("../api/test-email");
   app.get("/api/test-email", testEmail);
+  
+  const { cleanupSession } = await import("../api/cleanup-session");
+  app.post("/api/cleanup-session", cleanupSession);
   // tRPC API
   app.use(
     "/api/trpc",
