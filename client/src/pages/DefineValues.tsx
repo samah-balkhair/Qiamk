@@ -57,11 +57,17 @@ export default function DefineValues() {
 
   const allDefined = topValues?.every(tv => definitions[tv.id]?.trim());
 
+  const [isSaving, setIsSaving] = useState(false);
+
   const handleContinue = async () => {
     if (!allDefined) {
       toast.error("الرجاء تعريف جميع القيم قبل المتابعة");
       return;
     }
+
+    if (isSaving) return; // Prevent double-click
+
+    setIsSaving(true);
 
     // Save all definitions
     try {
@@ -78,6 +84,7 @@ export default function DefineValues() {
       setLocation(`/scenarios?session=${sessionId}`);
     } catch (error) {
       toast.error("حدث خطأ أثناء حفظ التعريفات");
+      setIsSaving(false);
     }
   };
 
@@ -168,9 +175,9 @@ export default function DefineValues() {
             <Button
               size="lg"
               onClick={handleContinue}
-              disabled={!allDefined || updateDefinitionMutation.isPending}
+              disabled={!allDefined || isSaving}
             >
-              {updateDefinitionMutation.isPending ? "جاري الحفظ..." : "المتابعة إلى السيناريوهات"}
+              {isSaving ? "جاري الحفظ..." : "المتابعة إلى السيناريوهات"}
             </Button>
           </div>
 
