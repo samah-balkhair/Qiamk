@@ -62,43 +62,17 @@ export default function Results() {
         topValue3Definition: top3Values[2].definition || "",
       });
 
-      // Send to GoHighLevel
-      await sendToGoHighLevel();
+      // Send to GoHighLevel (disabled temporarily)
+      // await sendToGoHighLevel();
     } catch (error) {
       console.error("Failed to save results:", error);
     }
   };
 
   const sendToGoHighLevel = async () => {
-    if (!user || !top3Values || top3Values.length < 3) return;
-
-    try {
-      const response = await fetch("/api/send-to-ghl", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: user.email,
-          value1: {
-            name: top3Values[0].valueName,
-            definition: top3Values[0].definition || ""
-          },
-          value2: {
-            name: top3Values[1].valueName,
-            definition: top3Values[1].definition || ""
-          },
-          value3: {
-            name: top3Values[2].valueName,
-            definition: top3Values[2].definition || ""
-          },
-        }),
-      });
-
-      if (response.ok) {
-        console.log("Successfully sent to GoHighLevel");
-      }
-    } catch (error) {
-      console.error("Failed to send to GoHighLevel:", error);
-    }
+    // Temporarily disabled - GoHighLevel integration
+    console.log("GoHighLevel integration disabled");
+    return;
   };
 
   const generateShareImage = async () => {

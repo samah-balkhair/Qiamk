@@ -46,14 +46,33 @@ export async function sendToGoHighLevel(req: Request, res: Response) {
       body: JSON.stringify(contactData),
     });
 
+    const responseText = await response.text();
+    console.log("GoHighLevel response status:", response.status);
+    console.log("GoHighLevel response:", responseText);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("GoHighLevel API error:", errorText);
-      throw new Error(`GoHighLevel API error: ${response.status}`);
+      console.error("GoHighLevel API error:", responseText);
+      // Don't fail the entire request if GoHighLevel fails
+      return res.json({ 
+        success: true, 
+        ghlError: true,
+        message: "Email sent successfully, but GoHighLevel sync failed" 
+      });
     }
 
-    const result = await response.json();
-    console.log("Successfully sent to GoHighLevel:", result);
+    let result;
+    try {
+      result = JSON.parse(responseText);
+      console.log("Successfully sent to GoHighLevel:", result);
+    } catch (parseError) {
+      console.error("Failed to parse GoHighLevel response:", parseError);
+      // Don't fail if we can't parse the response
+      return res.json({ 
+        success: true, 
+        ghlError: true,
+        message: "Email sent successfully, but GoHighLevel response was invalid" 
+      });
+    }
 
     return res.json({ success: true, contactId: result.contact?.id });
   } catch (error) {
