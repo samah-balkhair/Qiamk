@@ -34,20 +34,20 @@ export default function Results() {
   const saveResultMutation = trpc.results.save.useMutation();
   const markEmailSentMutation = trpc.results.markEmailSent.useMutation();
 
-  // Calculate top 3 values based on final scores
+  // Calculate top 3 values based on final scores (or all available if less than 3)
   const top3Values = topValues
     ?.sort((a, b) => (b.finalScore || 0) - (a.finalScore || 0))
-    .slice(0, 3);
+    .slice(0, Math.min(3, topValues.length));
 
   // Save results when component mounts
   useEffect(() => {
-    if (top3Values && top3Values.length === 3 && sessionId) {
+    if (top3Values && top3Values.length > 0 && sessionId) {
       saveResults();
     }
   }, [top3Values, sessionId]);
 
   const saveResults = async () => {
-    if (!top3Values || top3Values.length < 3 || !sessionId) return;
+    if (!top3Values || top3Values.length === 0 || !sessionId) return;
 
     try {
       await saveResultMutation.mutateAsync({

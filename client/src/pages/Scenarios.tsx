@@ -35,31 +35,37 @@ export default function Scenarios() {
   const updateChoiceMutation = trpc.scenarios.updateChoice.useMutation();
   const updateScoreMutation = trpc.values.updateScore.useMutation();
 
-  // Generate all scenario pairs (45 combinations)
+  // Generate all scenario pairs (45 combinations for 10 values, less for fewer)
   useEffect(() => {
-    if (topValues && topValues.length === 10) {
+    if (topValues && topValues.length >= 5) {
       const pairs: ScenarioPair[] = [];
-      for (let i = 0; i < topValues.length; i++) {
-        for (let j = i + 1; j < topValues.length; j++) {
+      
+      // Take top 10 values or all available if less than 10
+      const valuesToUse = topValues.slice(0, Math.min(10, topValues.length));
+      
+      for (let i = 0; i < valuesToUse.length; i++) {
+        for (let j = i + 1; j < valuesToUse.length; j++) {
           pairs.push({
             value1: {
-              id: topValues[i].id,
-              name: topValues[i].valueName || "",
-              definition: topValues[i].definition || "",
+              id: valuesToUse[i].id,
+              name: valuesToUse[i].valueName || "",
+              definition: valuesToUse[i].definition || "",
             },
             value2: {
-              id: topValues[j].id,
-              name: topValues[j].valueName || "",
-              definition: topValues[j].definition || "",
+              id: valuesToUse[j].id,
+              name: valuesToUse[j].valueName || "",
+              definition: valuesToUse[j].definition || "",
             },
           });
         }
       }
+      
       setScenarioPairs(pairs);
+      console.log(`Generated ${pairs.length} scenario pairs from ${valuesToUse.length} values`);
 
       // Initialize scores
       const scores: Record<string, number> = {};
-      topValues.forEach(tv => {
+      valuesToUse.forEach(tv => {
         scores[tv.id] = 0;
       });
       setFinalScores(scores);
