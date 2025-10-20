@@ -35,6 +35,16 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+  
+  // Custom API routes
+  const { generateScenario } = await import("../api/generate-scenario");
+  app.post("/api/generate-scenario", generateScenario);
+  
+  const { sendToGoHighLevel } = await import("../api/send-to-ghl");
+  app.post("/api/send-to-ghl", sendToGoHighLevel);
+  
+  const { sendEmailReport } = await import("../api/send-email-report");
+  app.post("/api/send-email-report", sendEmailReport);
   // tRPC API
   app.use(
     "/api/trpc",

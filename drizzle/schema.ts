@@ -1,14 +1,13 @@
-import { mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { mysqlEnum, mysqlTable, text, timestamp, varchar, int, boolean } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
  */
 export const users = mysqlTable("users", {
   id: varchar("id", { length: 64 }).primaryKey(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 20 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow(),
@@ -18,4 +17,103 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * Sessions table - tracks user journey through the values matrix
+ */
+export const sessions = mysqlTable("sessions", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  userId: varchar("userId", { length: 64 }).notNull(),
+  currentPage: int("currentPage").default(1).notNull(),
+  status: mysqlEnum("status", ["active", "completed"]).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow(),
+  completedAt: timestamp("completedAt"),
+});
+
+export type Session = typeof sessions.$inferSelect;
+export type InsertSession = typeof sessions.$inferInsert;
+
+/**
+ * Core values table - stores all available values
+ */
+export const coreValues = mysqlTable("coreValues", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  isDefault: boolean("isDefault").default(true).notNull(),
+  createdBy: varchar("createdBy", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
+export type CoreValue = typeof coreValues.$inferSelect;
+export type InsertCoreValue = typeof coreValues.$inferInsert;
+
+/**
+ * Selected values table - tracks which values user selected for their session
+ */
+export const selectedValues = mysqlTable("selectedValues", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  sessionId: varchar("sessionId", { length: 64 }).notNull(),
+  valueId: varchar("valueId", { length: 64 }).notNull(),
+  definition: text("definition"),
+  initialScore: int("initialScore").default(0),
+  finalScore: int("finalScore").default(0),
+  rank: int("rank"),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
+export type SelectedValue = typeof selectedValues.$inferSelect;
+export type InsertSelectedValue = typeof selectedValues.$inferInsert;
+
+/**
+ * Initial comparisons table - tracks merge sort comparisons
+ */
+export const initialComparisons = mysqlTable("initialComparisons", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  sessionId: varchar("sessionId", { length: 64 }).notNull(),
+  value1Id: varchar("value1Id", { length: 64 }).notNull(),
+  value2Id: varchar("value2Id", { length: 64 }).notNull(),
+  selectedValueId: varchar("selectedValueId", { length: 64 }).notNull(),
+  comparisonRound: int("comparisonRound").notNull(),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
+export type InitialComparison = typeof initialComparisons.$inferSelect;
+export type InsertInitialComparison = typeof initialComparisons.$inferInsert;
+
+/**
+ * Scenarios table - stores AI-generated scenarios for final comparisons
+ */
+export const scenarios = mysqlTable("scenarios", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  sessionId: varchar("sessionId", { length: 64 }).notNull(),
+  value1Id: varchar("value1Id", { length: 64 }).notNull(),
+  value1Definition: text("value1Definition"),
+  value2Id: varchar("value2Id", { length: 64 }).notNull(),
+  value2Definition: text("value2Definition"),
+  scenarioText: text("scenarioText").notNull(),
+  selectedValueId: varchar("selectedValueId", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
+export type Scenario = typeof scenarios.$inferSelect;
+export type InsertScenario = typeof scenarios.$inferInsert;
+
+/**
+ * Final results table - stores top 3 governing values
+ */
+export const finalResults = mysqlTable("finalResults", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  sessionId: varchar("sessionId", { length: 64 }).notNull(),
+  topValue1Id: varchar("topValue1Id", { length: 64 }).notNull(),
+  topValue1Definition: text("topValue1Definition"),
+  topValue2Id: varchar("topValue2Id", { length: 64 }).notNull(),
+  topValue2Definition: text("topValue2Definition"),
+  topValue3Id: varchar("topValue3Id", { length: 64 }).notNull(),
+  topValue3Definition: text("topValue3Definition"),
+  sentToGhl: boolean("sentToGhl").default(false),
+  emailSent: boolean("emailSent").default(false),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
+export type FinalResult = typeof finalResults.$inferSelect;
+export type InsertFinalResult = typeof finalResults.$inferInsert;
+
