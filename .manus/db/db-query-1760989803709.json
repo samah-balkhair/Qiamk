@@ -1,0 +1,9 @@
+{
+  "query": "DELETE FROM scenarios;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4B4rWvbyJeCXtYf.a0b7d1ccecde --database Guo3G4zpzHq3xTV4JvNADi --execute DELETE FROM scenarios;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 427
+}
