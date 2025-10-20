@@ -45,6 +45,9 @@ async function startServer() {
   
   const { sendEmailReport } = await import("../api/send-email-report");
   app.post("/api/send-email-report", sendEmailReport);
+  
+  const { testEmail } = await import("../api/test-email");
+  app.get("/api/test-email", testEmail);
   // tRPC API
   app.use(
     "/api/trpc",

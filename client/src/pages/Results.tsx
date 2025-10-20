@@ -173,18 +173,20 @@ export default function Results() {
         }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Failed to send email");
+        console.error("Email API error:", data);
+        throw new Error(data.error || "Failed to send email");
       }
 
-      // Mark email as sent (will be done in the backend)
-      // The backend should handle marking email as sent
-
+      console.log("Email sent successfully:", data);
       setEmailSent(true);
       toast.success("تم إرسال التقرير إلى بريدك الإلكتروني!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to send email:", error);
-      toast.error("حدث خطأ أثناء إرسال البريد الإلكتروني");
+      const errorMessage = error.message || "حدث خطأ أثناء إرسال البريد الإلكتروني";
+      toast.error(errorMessage);
     } finally {
       setIsSendingEmail(false);
     }
