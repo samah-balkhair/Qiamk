@@ -5,10 +5,10 @@ const GOHIGHLEVEL_LOCATION_ID = process.env.GOHIGHLEVEL_LOCATION_ID;
 
 export async function sendToGoHighLevel(req: Request, res: Response) {
   try {
-    const { name, email, phone, topValue1, topValue2, topValue3 } = req.body;
+    const { email, value1, value2, value3 } = req.body;
 
-    if (!name || !email) {
-      return res.status(400).json({ error: "Name and email are required" });
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
     }
 
     if (!GOHIGHLEVEL_API_TOKEN || !GOHIGHLEVEL_LOCATION_ID) {
@@ -16,35 +16,32 @@ export async function sendToGoHighLevel(req: Request, res: Response) {
       return res.status(500).json({ error: "GoHighLevel not configured" });
     }
 
-    // Create or update contact in GoHighLevel
+    // Format values as "Name: Definition"
+    const formatValue = (value: { name: string; definition: string } | undefined) => {
+      if (!value) return "";
+      return `${value.name}: ${value.definition}`;
+    };
+
+    // Create or update contact in GoHighLevel using v2 API
     const contactData = {
-      firstName: name.split(" ")[0] || name,
-      lastName: name.split(" ").slice(1).join(" ") || "",
       email,
-      phone: phone || "",
       locationId: GOHIGHLEVEL_LOCATION_ID,
-      customFields: [
-        {
-          key: "top_value_1",
-          value: topValue1 || "",
-        },
-        {
-          key: "top_value_2",
-          value: topValue2 || "",
-        },
-        {
-          key: "top_value_3",
-          value: topValue3 || "",
-        },
-      ],
+      customField: {
+        value_1: formatValue(value1),
+        value_2: formatValue(value2),
+        value_3: formatValue(value3),
+      },
       tags: ["values-matrix-completed"],
     };
 
-    const response = await fetch("https://rest.gohighlevel.com/v1/contacts/", {
+    console.log("Sending to GoHighLevel:", { email, locationId: GOHIGHLEVEL_LOCATION_ID });
+
+    const response = await fetch("https://services.leadconnectorhq.com/contacts/", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${GOHIGHLEVEL_API_TOKEN}`,
         "Content-Type": "application/json",
+        "Version": "2021-07-28",
       },
       body: JSON.stringify(contactData),
     });

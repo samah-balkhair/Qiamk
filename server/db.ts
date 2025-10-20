@@ -280,3 +280,22 @@ export async function updateFinalResult(id: string, data: Partial<InsertFinalRes
   await db.update(finalResults).set(data).where(eq(finalResults.id, id));
 }
 
+
+// Statistics
+export async function getCompletedSessionsCount(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  
+  try {
+    const result = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.status, "completed"));
+    
+    return result.length;
+  } catch (error) {
+    console.error("[Database] Failed to get completed sessions count:", error);
+    return 0;
+  }
+}
+

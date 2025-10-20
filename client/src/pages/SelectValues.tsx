@@ -60,8 +60,28 @@ export default function SelectValues() {
       return;
     }
 
+    const trimmedName = newValueName.trim();
+    
+    // Check if value already exists in all values (case-insensitive and normalized)
+    const normalizedInput = trimmedName.replace(/\s+/g, ' ').toLowerCase();
+    const existingValue = allValues?.find(v => 
+      v.name.replace(/\s+/g, ' ').toLowerCase() === normalizedInput
+    );
+    
+    if (existingValue) {
+      toast.error("القيمة موجودة يمكنك اختيارها من صندوق القيم المتاحة");
+      setNewValueName("");
+      
+      // Auto-select if not already selected
+      if (!selectedValueIds.includes(existingValue.id) && selectedValueIds.length < 50) {
+        setSelectedValueIds(prev => [...prev, existingValue.id]);
+        toast.success("تم إضافة القيمة إلى القيم المختارة");
+      }
+      return;
+    }
+
     try {
-      const newValue = await addValueMutation.mutateAsync({ name: newValueName.trim() });
+      const newValue = await addValueMutation.mutateAsync({ name: trimmedName });
       toast.success("تمت إضافة القيمة بنجاح");
       setNewValueName("");
       await refetchValues();

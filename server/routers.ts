@@ -71,6 +71,10 @@ export const appRouter = router({
         });
         return { success: true };
       }),
+
+    getCompletedCount: publicProcedure.query(async () => {
+      return await db.getCompletedSessionsCount();
+    }),
   }),
 
   values: router({

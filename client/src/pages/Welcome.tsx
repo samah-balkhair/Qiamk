@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Footer from "@/components/Footer";
@@ -5,11 +6,34 @@ import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
+import { Users, Sparkles } from "lucide-react";
 
 export default function Welcome() {
   const [, setLocation] = useLocation();
   const { user, isAuthenticated } = useAuth();
   const createSessionMutation = trpc.sessions.create.useMutation();
+  const [animatedCount, setAnimatedCount] = useState(0);
+
+  // Get completed sessions count
+  const { data: completedCount } = trpc.sessions.getCompletedCount.useQuery();
+
+  // Animate counter
+  useEffect(() => {
+    if (completedCount && completedCount > 0) {
+      let current = 0;
+      const increment = Math.ceil(completedCount / 50);
+      const timer = setInterval(() => {
+        current += increment;
+        if (current >= completedCount) {
+          setAnimatedCount(completedCount);
+          clearInterval(timer);
+        } else {
+          setAnimatedCount(current);
+        }
+      }, 30);
+      return () => clearInterval(timer);
+    }
+  }, [completedCount]);
 
   const handleStart = async () => {
     if (!isAuthenticated) {
@@ -33,6 +57,18 @@ export default function Welcome() {
           <div className="text-center space-y-4">
             <h1 className="text-5xl font-bold text-slate-900">مصفوفة القيم</h1>
             <p className="text-xl text-slate-600">اكتشف قيمك الحاكمة بطريقة ممنهجة</p>
+            
+            {/* Visitor Counter */}
+            {completedCount !== undefined && completedCount > 0 && (
+              <div className="mt-6 inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-6 py-3 rounded-full">
+                <Users className="w-5 h-5" />
+                <span className="font-semibold text-lg">
+                  {animatedCount.toLocaleString('ar-SA')}
+                </span>
+                <span>شخص اكتشفوا قيمهم الحاكمة</span>
+                <Sparkles className="w-5 h-5 text-yellow-500" />
+              </div>
+            )}
           </div>
 
           {/* Main Content Card */}
