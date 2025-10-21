@@ -256,6 +256,13 @@ export async function updateScenario(id: string, data: Partial<InsertScenario>) 
   await db.update(scenarios).set(data).where(eq(scenarios.id, id));
 }
 
+export async function deleteScenariosForSession(sessionId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.delete(scenarios).where(eq(scenarios.sessionId, sessionId));
+}
+
 // Final Results
 export async function addFinalResult(data: InsertFinalResult) {
   const db = await getDb();

@@ -3,11 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import Footer from "@/components/Footer";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft, Edit } from "lucide-react";
 
 interface ScenarioPair {
   value1: { id: string; name: string; definition: string };
@@ -25,6 +35,12 @@ export default function Scenarios() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [scenarioId, setScenarioId] = useState<string | null>(null);
   const [finalScores, setFinalScores] = useState<Record<string, number>>({});
+  const [showEditWarning, setShowEditWarning] = useState(false);
+  const [scenarioHistory, setScenarioHistory] = useState<Array<{
+    index: number;
+    scenarioId: string;
+    selectedValueId: string | null;
+  }>>([]);
 
   const { data: topValues } = trpc.values.getTopValues.useQuery(
     { sessionId: sessionId!, limit: 10 },
@@ -34,6 +50,7 @@ export default function Scenarios() {
   const addScenarioMutation = trpc.scenarios.add.useMutation();
   const updateChoiceMutation = trpc.scenarios.updateChoice.useMutation();
   const updateScoreMutation = trpc.values.updateScore.useMutation();
+  const deleteScenariosMutation = trpc.scenarios.deleteAll.useMutation();
 
   // Generate all scenario pairs (45 combinations for 10 values, less for fewer)
   useEffect(() => {
@@ -144,6 +161,16 @@ export default function Scenarios() {
         selectedValueId,
       });
 
+      // Add to history
+      setScenarioHistory(prev => [
+        ...prev,
+        {
+          index: currentScenarioIndex,
+          scenarioId: scenarioId,
+          selectedValueId: selectedValueId,
+        }
+      ]);
+
       // Update final score
       setFinalScores(prev => ({
         ...prev,
@@ -152,6 +179,7 @@ export default function Scenarios() {
 
       // Move to next scenario
       if (currentScenarioIndex < scenarioPairs.length - 1) {
+        window.scrollTo(0, 0);
         setCurrentScenarioIndex(prev => prev + 1);
         setScenarioId(null);
       } else {
@@ -166,10 +194,51 @@ export default function Scenarios() {
         }
 
         toast.success("تم الانتهاء من جميع السيناريوهات!");
+        window.scrollTo(0, 0);
         setLocation(`/results?session=${sessionId}`);
       }
     } catch (error) {
       toast.error("حدث خطأ أثناء حفظ الاختيار");
+      console.error(error);
+    }
+  };
+
+  const handleGoBack = () => {
+    if (currentScenarioIndex > 0) {
+      window.scrollTo(0, 0);
+      setCurrentScenarioIndex(prev => prev - 1);
+      setScenarioId(null);
+      
+      // Remove last entry from history
+      setScenarioHistory(prev => prev.slice(0, -1));
+      
+      // Adjust scores if there was a previous choice
+      const lastHistory = scenarioHistory[scenarioHistory.length - 1];
+      if (lastHistory && lastHistory.selectedValueId) {
+        setFinalScores(prev => ({
+          ...prev,
+          [lastHistory.selectedValueId!]: Math.max(0, (prev[lastHistory.selectedValueId!] || 0) - 1),
+        }));
+      }
+    }
+  };
+
+  const handleEditDefinitions = () => {
+    setShowEditWarning(true);
+  };
+
+  const confirmEditDefinitions = async () => {
+    if (!sessionId) return;
+
+    try {
+      // Delete all scenarios for this session
+      await deleteScenariosMutation.mutateAsync({ sessionId });
+      
+      toast.success("سيتم إعادة توجيهك لتعديل التعريفات");
+      window.scrollTo(0, 0);
+      setLocation(`/define-values?session=${sessionId}`);
+    } catch (error) {
+      toast.error("حدث خطأ أثناء مسح السيناريوهات");
       console.error(error);
     }
   };
@@ -207,6 +276,29 @@ export default function Scenarios() {
               </div>
               <Progress value={progress} className="h-2" />
             </div>
+          </div>
+
+          {/* Navigation Buttons */}
+          <div className="flex gap-3 justify-between">
+            <Button
+              variant="outline"
+              onClick={handleGoBack}
+              disabled={currentScenarioIndex === 0 || isGenerating}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              السيناريو السابق
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={handleEditDefinitions}
+              disabled={isGenerating}
+              className="flex items-center gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              تعديل التعريفات
+            </Button>
           </div>
 
           {/* Values Being Compared */}
@@ -294,6 +386,32 @@ export default function Scenarios() {
           </Card>
         </div>
       </main>
+
+      {/* Edit Definitions Warning Dialog */}
+      <AlertDialog open={showEditWarning} onOpenChange={setShowEditWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تحذير: تعديل التعريفات</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                ⚠️ العودة لتعديل التعريفات سيؤدي إلى <strong>مسح جميع السيناريوهات</strong> التي أجبت عليها.
+              </p>
+              <p>
+                سيتم البدء من جديد بسيناريوهات جديدة بعد تعديل التعريفات.
+              </p>
+              <p className="text-amber-700 font-medium">
+                هل أنت متأكد من رغبتك في المتابعة؟
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmEditDefinitions} className="bg-red-600 hover:bg-red-700">
+              نعم، أريد تعديل التعريفات
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Footer />
     </div>

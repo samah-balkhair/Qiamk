@@ -5,6 +5,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Welcome from "./pages/Welcome";
+import Instructions from "./pages/Instructions";
 import SelectValues from "./pages/SelectValues";
 import CompareValues from "./pages/CompareValues";
 import DefineValues from "./pages/DefineValues";
@@ -16,6 +17,7 @@ function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Welcome} />
+      <Route path={"/instructions"} component={Instructions} />
       <Route path={"/select-values"} component={SelectValues} />
       <Route path={"/compare-values"} component={CompareValues} />
       <Route path={"/define-values"} component={DefineValues} />

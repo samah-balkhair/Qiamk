@@ -81,6 +81,7 @@ export default function DefineValues() {
       }
 
       toast.success("تم حفظ جميع التعريفات!");
+      window.scrollTo(0, 0);
       setLocation(`/scenarios?session=${sessionId}`);
     } catch (error) {
       toast.error("حدث خطأ أثناء حفظ التعريفات");

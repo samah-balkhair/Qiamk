@@ -3,14 +3,10 @@ import { Button } from "@/components/ui/button";
 import Footer from "@/components/Footer";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
-import { Loader2 } from "lucide-react";
+import { Loader2, BookOpen } from "lucide-react";
 
 export default function Welcome() {
   const [, setLocation] = useLocation();
-  const { user, isAuthenticated } = useAuth();
-  const createSessionMutation = trpc.sessions.create.useMutation();
   const [animatedCount, setAnimatedCount] = useState(0);
 
   // Get completed sessions count
@@ -34,18 +30,9 @@ export default function Welcome() {
     }
   }, [completedCount]);
 
-  const handleStart = async () => {
-    if (!isAuthenticated) {
-      window.location.href = getLoginUrl();
-      return;
-    }
-
-    try {
-      const session = await createSessionMutation.mutateAsync();
-      setLocation(`/select-values?session=${session.id}`);
-    } catch (error) {
-      console.error("Failed to create session:", error);
-    }
+  const handleGoToInstructions = () => {
+    window.scrollTo(0, 0);
+    setLocation("/instructions");
   };
 
   return (
@@ -62,32 +49,21 @@ export default function Welcome() {
             </p>
           </div>
 
-          {/* الشرح المختصر */}
+          {/* البطاقة الرئيسية */}
           <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 space-y-8">
             <p className="text-lg md:text-xl text-gray-700 leading-relaxed">
               أداة علمية لاكتشاف القيم الحاكمة التي توجه قراراتك وتعمل كبوصلة داخلية في حياتك.
             </p>
-            
-            <p className="text-base md:text-lg text-gray-600 leading-relaxed">
-              من خلال منهجية علمية مدروسة تتكون من عدة مراحل متدرجة، ستحصل على <strong className="text-gray-800">أعلى 3 قيم حاكمة</strong> لديك مع تعريفها الشخصي، وتقرير تفصيلي يُرسل إلى بريدك الإلكتروني.
-            </p>
 
-            {/* زر البدء */}
+            {/* زر التعليمات */}
             <div className="pt-2">
               <Button
-                onClick={handleStart}
-                disabled={createSessionMutation.isPending}
+                onClick={handleGoToInstructions}
                 size="lg"
-                className="text-xl px-12 py-7 h-auto rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                className="text-xl px-12 py-7 h-auto rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 flex items-center gap-3"
               >
-                {createSessionMutation.isPending ? (
-                  <>
-                    <Loader2 className="ml-2 h-6 w-6 animate-spin" />
-                    جاري التحضير...
-                  </>
-                ) : (
-                  "ابدأ رحلة اكتشاف قيمك"
-                )}
+                <BookOpen className="h-6 w-6" />
+                اقرأ التعليمات
               </Button>
             </div>
 
@@ -118,15 +94,13 @@ export default function Welcome() {
           </div>
 
           {/* ملاحظة تحفيزية */}
-          <p className="text-sm text-gray-500 flex items-center justify-center gap-2">
-            <span>💡</span>
-            <span>
-              تذكر: القيم ليست ثابتة، يتيح لك إعادة هذا التمرين بشكل دوري إمكانية تطورك الشخصي
-            </span>
-          </p>
+          <div className="text-center">
+            <p className="text-base text-gray-500">
+              💡 تذكر: القيم ليست ثابتة، يُنصح بإعادة هذا التمرين بشكل دوري لمواكبة تطورك الشخصي.
+            </p>
+          </div>
         </div>
       </main>
-
       <Footer />
     </div>
   );

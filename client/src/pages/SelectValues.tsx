@@ -112,6 +112,9 @@ export default function SelectValues() {
         valueIds: selectedValueIds,
       });
 
+      // Scroll to top before navigation
+      window.scrollTo(0, 0);
+
       // If more than 10 values, go to comparison page
       if (selectedValueIds.length > 10) {
         setLocation(`/compare-values?session=${sessionId}`);

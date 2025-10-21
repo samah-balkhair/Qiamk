@@ -235,6 +235,13 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return await db.getScenarios(input.sessionId);
       }),
+
+    deleteAll: protectedProcedure
+      .input(z.object({ sessionId: z.string() }))
+      .mutation(async ({ input }) => {
+        await db.deleteScenariosForSession(input.sessionId);
+        return { success: true };
+      }),
   }),
 
   results: router({

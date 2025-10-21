@@ -170,6 +170,7 @@ export default function CompareValues() {
 
         // Move to define values page
         toast.success("تم الانتهاء من المفاضلة!");
+        window.scrollTo(0, 0);
         setLocation(`/define-values?session=${sessionId}`);
       } else {
         // Force re-render to show next comparison
