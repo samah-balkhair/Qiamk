@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: qiamk
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: pnpm install && pnpm build
+    startCommand: pnpm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: GHL_API_TOKEN
+        sync: false
+      - key: GHL_LOCATION_ID
+        sync: false
+
