@@ -1,5 +1,5 @@
 import { eq, and, desc } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/neon-http";
 import { 
   InsertUser, 
   users, 
@@ -26,7 +26,9 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const { neon } = await import('@neondatabase/serverless');
+      const sql = neon(process.env.DATABASE_URL);
+      _db = drizzle(sql);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -81,7 +83,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
+    // PostgreSQL upsert syntax
+    await db.insert(users).values(values).onConflictDoUpdate({
+      target: users.id,
       set: updateSet,
     });
   } catch (error) {
@@ -344,18 +348,19 @@ export async function getTodayQuota() {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Start of day
+    const todayStr = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
     
     const result = await db
       .select()
       .from(dailyQuota)
-      .where(eq(dailyQuota.date, today))
+      .where(eq(dailyQuota.date, todayStr))
       .limit(1);
     
     if (result.length === 0) {
       // Create today's quota record
       const newQuota: InsertDailyQuota = {
         id: `quota_${Date.now()}`,
-        date: today,
+        date: todayStr,
         scenariosGenerated: 0,
         quotaLimit: 1500, // Gemini free tier limit
       };
@@ -378,6 +383,7 @@ export async function incrementQuotaUsage(): Promise<boolean> {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
     const quota = await getTodayQuota();
     
     if (!quota || quota.scenariosGenerated === undefined || quota.quotaLimit === undefined) {
@@ -397,7 +403,7 @@ export async function incrementQuotaUsage(): Promise<boolean> {
         scenariosGenerated: quota.scenariosGenerated + 1,
         updatedAt: new Date()
       })
-      .where(eq(dailyQuota.date, today));
+      .where(eq(dailyQuota.date, todayStr));
     
     return true;
   } catch (error) {
