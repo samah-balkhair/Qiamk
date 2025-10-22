@@ -56,7 +56,7 @@ export default function Welcome() {
             </p>
 
             {/* زر التعليمات */}
-            <div className="pt-2">
+            <div className="pt-2 flex justify-center">
               <Button
                 onClick={handleGoToInstructions}
                 size="lg"

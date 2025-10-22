@@ -9,12 +9,14 @@ import {
   initialComparisons,
   scenarios,
   finalResults,
+  dailyQuota,
   InsertSession,
   InsertCoreValue,
   InsertSelectedValue,
   InsertInitialComparison,
   InsertScenario,
-  InsertFinalResult
+  InsertFinalResult,
+  InsertDailyQuota
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -330,5 +332,94 @@ export async function cleanupSessionData(sessionId: string) {
     console.error("[Database] Failed to cleanup session data:", error);
     throw error;
   }
+}
+
+
+
+// Daily Quota Management
+export async function getTodayQuota() {
+  const db = await getDb();
+  if (!db) return null;
+  
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of day
+    
+    const result = await db
+      .select()
+      .from(dailyQuota)
+      .where(eq(dailyQuota.date, today))
+      .limit(1);
+    
+    if (result.length === 0) {
+      // Create today's quota record
+      const newQuota: InsertDailyQuota = {
+        id: `quota_${Date.now()}`,
+        date: today,
+        scenariosGenerated: 0,
+        quotaLimit: 1500, // Gemini free tier limit
+      };
+      
+      await db.insert(dailyQuota).values(newQuota);
+      return newQuota;
+    }
+    
+    return result[0];
+  } catch (error) {
+    console.error("[Database] Failed to get today's quota:", error);
+    return null;
+  }
+}
+
+export async function incrementQuotaUsage(): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const quota = await getTodayQuota();
+    
+    if (!quota || quota.scenariosGenerated === undefined || quota.quotaLimit === undefined) {
+      return false;
+    }
+    
+    // Check if quota exceeded
+    if (quota.scenariosGenerated >= quota.quotaLimit) {
+      console.warn("[Quota] Daily quota exceeded");
+      return false;
+    }
+    
+    // Increment usage
+    await db
+      .update(dailyQuota)
+      .set({ 
+        scenariosGenerated: quota.scenariosGenerated + 1,
+        updatedAt: new Date()
+      })
+      .where(eq(dailyQuota.date, today));
+    
+    return true;
+  } catch (error) {
+    console.error("[Database] Failed to increment quota:", error);
+    return false;
+  }
+}
+
+export async function checkQuotaAvailable(): Promise<{ available: boolean; remaining: number; limit: number }> {
+  const quota = await getTodayQuota();
+  
+  if (!quota || quota.quotaLimit === undefined || quota.scenariosGenerated === undefined) {
+    return { available: false, remaining: 0, limit: 1500 };
+  }
+  
+  const remaining = quota.quotaLimit - quota.scenariosGenerated;
+  const available = remaining > 0;
+  
+  return {
+    available,
+    remaining,
+    limit: quota.quotaLimit
+  };
 }
 

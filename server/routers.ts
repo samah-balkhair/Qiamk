@@ -198,6 +198,11 @@ export const appRouter = router({
   }),
 
   scenarios: router({
+    checkQuota: publicProcedure
+      .query(async () => {
+        return await db.checkQuotaAvailable();
+      }),
+
     add: protectedProcedure
       .input(z.object({
         sessionId: z.string(),
@@ -208,6 +213,12 @@ export const appRouter = router({
         scenarioText: z.string(),
       }))
       .mutation(async ({ input }) => {
+        // Check and increment quota
+        const canProceed = await db.incrementQuotaUsage();
+        if (!canProceed) {
+          throw new Error("QUOTA_EXCEEDED");
+        }
+
         const scenario = await db.addScenario({
           id: nanoid(),
           sessionId: input.sessionId,

@@ -1,4 +1,5 @@
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import { coreValues } from "../drizzle/schema";
 import { nanoid } from "nanoid";
 
@@ -47,7 +48,10 @@ async function seedValues() {
     process.exit(1);
   }
 
-  const db = drizzle(process.env.DATABASE_URL);
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+  });
+  const db = drizzle(pool);
 
   console.log("Seeding default values...");
 

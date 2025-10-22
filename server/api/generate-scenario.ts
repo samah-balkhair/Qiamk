@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { invokeLLM } from "../_core/llm";
+import { generateWithGemini } from "../_core/gemini";
 
 export async function generateScenario(req: Request, res: Response) {
   try {
@@ -15,20 +15,9 @@ export async function generateScenario(req: Request, res: Response) {
 
 اكتب لي في البداية عنوان المفاضلة ما بين القيمتين وتعريفهما ثم اسرد السيناريو بعدها.`;
 
-    const response = await invokeLLM({
-      messages: [
-        {
-          role: "system",
-          content: "أنت خبير في إنشاء سيناريوهات متطرفة تساعد الأشخاص على اكتشاف قيمهم الحقيقية. السيناريوهات يجب أن تكون واقعية، مؤثرة، وتجبر الشخص على اختيار قيمة واحدة فقط.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
-
-    const scenario = response.choices[0]?.message?.content || "فشل في إنشاء السيناريو";
+    const systemInstruction = "أنت خبير في إنشاء سيناريوهات متطرفة تساعد الأشخاص على اكتشاف قيمهم الحقيقية. السيناريوهات يجب أن تكون واقعية، مؤثرة، وتجبر الشخص على اختيار قيمة واحدة فقط.";
+    
+    const scenario = await generateWithGemini(prompt, systemInstruction);
 
     return res.json({ scenario });
   } catch (error) {

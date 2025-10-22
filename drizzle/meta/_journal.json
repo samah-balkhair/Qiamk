@@ -1,26 +1,12 @@
 {
   "version": "7",
-  "dialect": "mysql",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "5",
-      "when": 1760953226385,
-      "tag": "0000_amazing_whizzer",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "5",
-      "when": 1760953261774,
-      "tag": "0001_messy_lizard",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "5",
-      "when": 1760958345898,
-      "tag": "0002_melodic_skaar",
+      "version": "7",
+      "when": 1761117686161,
+      "tag": "0000_luxuriant_black_tarantula",
       "breakpoints": true
     }
   ]

@@ -47,6 +47,7 @@ export default function Scenarios() {
     { enabled: !!sessionId }
   );
 
+  const { data: quotaStatus } = trpc.scenarios.checkQuota.useQuery();
   const addScenarioMutation = trpc.scenarios.add.useMutation();
   const updateChoiceMutation = trpc.scenarios.updateChoice.useMutation();
   const updateScoreMutation = trpc.values.updateScore.useMutation();
@@ -142,8 +143,15 @@ export default function Scenarios() {
       });
 
       setScenarioId(scenario.id);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to generate scenario:", error);
+      
+      // Check if it's a quota error
+      if (error?.message === "QUOTA_EXCEEDED" || error?.data?.message === "QUOTA_EXCEEDED") {
+        // Quota exceeded - don't show generic error
+        return;
+      }
+      
       toast.error("حدث خطأ أثناء إنشاء السيناريو");
       setCurrentScenarioText("عذراً، حدث خطأ أثناء إنشاء السيناريو. الرجاء المحاولة مرة أخرى.");
     } finally {
@@ -321,6 +329,51 @@ export default function Scenarios() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Quota Exceeded Warning */}
+          {quotaStatus && !quotaStatus.available && (
+            <Card className="border-2 border-yellow-400 bg-yellow-50">
+              <CardHeader>
+                <CardTitle className="text-xl text-yellow-800 flex items-center gap-2">
+                  ⚠️ تم استنفاذ رصيد السيناريوهات لهذا اليوم
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-yellow-900 leading-relaxed">
+                  نظراً للطلب الكبير، تم الوصول للحد الأقصى من السيناريوهات اليومية ({quotaStatus.limit} سيناريو).
+                </p>
+                
+                <div className="bg-white rounded-lg p-4 space-y-3">
+                  <p className="font-semibold text-slate-900">يمكنك:</p>
+                  <ul className="list-disc list-inside space-y-2 text-slate-700">
+                    <li>العودة غداً لإكمال التمرين (سيتم حفظ تقدمك تلقائياً)</li>
+                    <li>التواصل معنا للحصول على أولوية الوصول</li>
+                    <li>ترك بريدك الإلكتروني لإشعارك عند توفر الرصيد</li>
+                  </ul>
+                </div>
+
+                <div className="flex gap-3 flex-wrap">
+                  <Button
+                    onClick={() => setLocation("/")}
+                    variant="default"
+                    className="bg-yellow-600 hover:bg-yellow-700"
+                  >
+                    العودة للصفحة الرئيسية
+                  </Button>
+                  <Button
+                    onClick={() => window.open("https://linktr.ee/samahbalkhair", "_blank")}
+                    variant="outline"
+                  >
+                    التواصل معنا
+                  </Button>
+                </div>
+
+                <p className="text-sm text-slate-600 italic">
+                  💡 تذكر: تقدمك محفوظ بشكل تلقائي. يمكنك العودة في أي وقت لإكمال رحلتك.
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Scenario */}
           <Card className="border-2">

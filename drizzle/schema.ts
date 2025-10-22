@@ -1,15 +1,19 @@
-import { mysqlEnum, mysqlTable, text, timestamp, varchar, int, boolean } from "drizzle-orm/mysql-core";
+import { pgEnum, pgTable, text, timestamp, varchar, integer, boolean, date } from "drizzle-orm/pg-core";
+
+// Define enums
+export const roleEnum = pgEnum("role", ["user", "admin"]);
+export const statusEnum = pgEnum("status", ["active", "completed"]);
 
 /**
  * Core user table backing auth flow.
  */
-export const users = mysqlTable("users", {
+export const users = pgTable("users", {
   id: varchar("id", { length: 64 }).primaryKey(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 20 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: roleEnum("role").default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow(),
 });
@@ -20,13 +24,13 @@ export type InsertUser = typeof users.$inferInsert;
 /**
  * Sessions table - tracks user journey through the values matrix
  */
-export const sessions = mysqlTable("sessions", {
+export const sessions = pgTable("sessions", {
   id: varchar("id", { length: 64 }).primaryKey(),
   userId: varchar("userId", { length: 64 }).notNull(),
-  currentPage: int("currentPage").default(1).notNull(),
-  status: mysqlEnum("status", ["active", "completed"]).default("active").notNull(),
-  comparisonsCompleted: int("comparisonsCompleted").default(0),
-  totalComparisons: int("totalComparisons").default(0),
+  currentPage: integer("currentPage").default(1).notNull(),
+  status: statusEnum("status").default("active").notNull(),
+  comparisonsCompleted: integer("comparisonsCompleted").default(0),
+  totalComparisons: integer("totalComparisons").default(0),
   createdAt: timestamp("createdAt").defaultNow(),
   completedAt: timestamp("completedAt"),
 });
@@ -37,7 +41,7 @@ export type InsertSession = typeof sessions.$inferInsert;
 /**
  * Core values table - stores all available values
  */
-export const coreValues = mysqlTable("coreValues", {
+export const coreValues = pgTable("coreValues", {
   id: varchar("id", { length: 64 }).primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   isDefault: boolean("isDefault").default(true).notNull(),
@@ -51,14 +55,14 @@ export type InsertCoreValue = typeof coreValues.$inferInsert;
 /**
  * Selected values table - tracks which values user selected for their session
  */
-export const selectedValues = mysqlTable("selectedValues", {
+export const selectedValues = pgTable("selectedValues", {
   id: varchar("id", { length: 64 }).primaryKey(),
   sessionId: varchar("sessionId", { length: 64 }).notNull(),
   valueId: varchar("valueId", { length: 64 }).notNull(),
   definition: text("definition"),
-  initialScore: int("initialScore").default(0),
-  finalScore: int("finalScore").default(0),
-  rank: int("rank"),
+  initialScore: integer("initialScore").default(0),
+  finalScore: integer("finalScore").default(0),
+  rank: integer("rank"),
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
@@ -68,13 +72,13 @@ export type InsertSelectedValue = typeof selectedValues.$inferInsert;
 /**
  * Initial comparisons table - tracks merge sort comparisons
  */
-export const initialComparisons = mysqlTable("initialComparisons", {
+export const initialComparisons = pgTable("initialComparisons", {
   id: varchar("id", { length: 64 }).primaryKey(),
   sessionId: varchar("sessionId", { length: 64 }).notNull(),
   value1Id: varchar("value1Id", { length: 64 }).notNull(),
   value2Id: varchar("value2Id", { length: 64 }).notNull(),
   selectedValueId: varchar("selectedValueId", { length: 64 }).notNull(),
-  comparisonRound: int("comparisonRound").notNull(),
+  comparisonRound: integer("comparisonRound").notNull(),
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
@@ -84,7 +88,7 @@ export type InsertInitialComparison = typeof initialComparisons.$inferInsert;
 /**
  * Scenarios table - stores AI-generated scenarios for final comparisons
  */
-export const scenarios = mysqlTable("scenarios", {
+export const scenarios = pgTable("scenarios", {
   id: varchar("id", { length: 64 }).primaryKey(),
   sessionId: varchar("sessionId", { length: 64 }).notNull(),
   value1Id: varchar("value1Id", { length: 64 }).notNull(),
@@ -102,7 +106,7 @@ export type InsertScenario = typeof scenarios.$inferInsert;
 /**
  * Final results table - stores top 3 governing values
  */
-export const finalResults = mysqlTable("finalResults", {
+export const finalResults = pgTable("finalResults", {
   id: varchar("id", { length: 64 }).primaryKey(),
   sessionId: varchar("sessionId", { length: 64 }).notNull(),
   topValue1Id: varchar("topValue1Id", { length: 64 }).notNull(),
@@ -118,4 +122,19 @@ export const finalResults = mysqlTable("finalResults", {
 
 export type FinalResult = typeof finalResults.$inferSelect;
 export type InsertFinalResult = typeof finalResults.$inferInsert;
+
+/**
+ * Daily quota table - tracks API usage per day
+ */
+export const dailyQuota = pgTable("dailyQuota", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  date: date("date").notNull(),
+  scenariosGenerated: integer("scenariosGenerated").default(0).notNull(),
+  quotaLimit: integer("quotaLimit").default(1500).notNull(),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow(),
+});
+
+export type DailyQuota = typeof dailyQuota.$inferSelect;
+export type InsertDailyQuota = typeof dailyQuota.$inferInsert;
 
