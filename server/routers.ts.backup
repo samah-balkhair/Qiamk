@@ -1,7 +1,7 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import * as db from "./db";
@@ -21,30 +21,24 @@ export const appRouter = router({
   }),
 
   sessions: router({
-    create: publicProcedure
-      .input(z.object({ userId: z.string() }))
-      .mutation(async ({ input }) => {
-        const sessionId = nanoid();
-        
-        // Create anonymous user if needed
-        await db.upsertUser({ id: input.userId });
-        
-        const session = await db.createSession({
-          id: sessionId,
-          userId: input.userId,
-          currentPage: 1,
-          status: "active",
-        });
-        return session;
-      }),
+    create: protectedProcedure.mutation(async ({ ctx }) => {
+      const sessionId = nanoid();
+      const session = await db.createSession({
+        id: sessionId,
+        userId: ctx.user.id,
+        currentPage: 1,
+        status: "active",
+      });
+      return session;
+    }),
 
-    get: publicProcedure
+    get: protectedProcedure
       .input(z.object({ id: z.string() }))
       .query(async ({ input }) => {
         return await db.getSession(input.id);
       }),
 
-    updatePage: publicProcedure
+    updatePage: protectedProcedure
       .input(z.object({ 
         id: z.string(),
         page: z.number().min(1).max(6)
@@ -54,7 +48,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    complete: publicProcedure
+    complete: protectedProcedure
       .input(z.object({ id: z.string() }))
       .mutation(async ({ input }) => {
         await db.updateSession(input.id, { 
@@ -64,7 +58,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    updateProgress: publicProcedure
+    updateProgress: protectedProcedure
       .input(z.object({ 
         id: z.string(),
         comparisonsCompleted: z.number(),
@@ -82,7 +76,7 @@ export const appRouter = router({
       return await db.getCompletedSessionsCount();
     }),
 
-    cleanupSession: publicProcedure
+    cleanupSession: protectedProcedure
       .input(z.object({ sessionId: z.string() }))
       .mutation(async ({ input }) => {
         await db.cleanupSessionData(input.sessionId);
@@ -95,12 +89,9 @@ export const appRouter = router({
       return await db.getAllCoreValues();
     }),
 
-    add: publicProcedure
-      .input(z.object({ 
-        name: z.string(),
-        userId: z.string().optional()
-      }))
-      .mutation(async ({ input }) => {
+    add: protectedProcedure
+      .input(z.object({ name: z.string() }))
+      .mutation(async ({ ctx, input }) => {
         // Check if value already exists
         const existing = await db.findValueByName(input.name);
         if (existing) {
@@ -112,12 +103,12 @@ export const appRouter = router({
           id: valueId,
           name: input.name,
           isDefault: false,
-          createdBy: input.userId || null,
+          createdBy: ctx.user.id,
         });
         return value;
       }),
 
-    selectValues: publicProcedure
+    selectValues: protectedProcedure
       .input(z.object({
         sessionId: z.string(),
         valueIds: z.array(z.string()).min(5).max(50),
@@ -137,13 +128,13 @@ export const appRouter = router({
         return selectedValuesList;
       }),
 
-    getSelected: publicProcedure
+    getSelected: protectedProcedure
       .input(z.object({ sessionId: z.string() }))
       .query(async ({ input }) => {
         return await db.getSelectedValuesWithNames(input.sessionId);
       }),
 
-    updateDefinition: publicProcedure
+    updateDefinition: protectedProcedure
       .input(z.object({
         id: z.string(),
         definition: z.string(),
@@ -153,7 +144,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    updateScore: publicProcedure
+    updateScore: protectedProcedure
       .input(z.object({
         id: z.string(),
         score: z.number(),
@@ -168,7 +159,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    getTopValues: publicProcedure
+    getTopValues: protectedProcedure
       .input(z.object({ 
         sessionId: z.string(),
         limit: z.number().optional().default(10)
@@ -179,7 +170,7 @@ export const appRouter = router({
   }),
 
   comparisons: router({
-    add: publicProcedure
+    add: protectedProcedure
       .input(z.object({
         sessionId: z.string(),
         value1Id: z.string(),
@@ -199,7 +190,7 @@ export const appRouter = router({
         return comparison;
       }),
 
-    getAll: publicProcedure
+    getAll: protectedProcedure
       .input(z.object({ sessionId: z.string() }))
       .query(async ({ input }) => {
         return await db.getInitialComparisons(input.sessionId);
@@ -212,7 +203,7 @@ export const appRouter = router({
         return await db.checkQuotaAvailable();
       }),
 
-    add: publicProcedure
+    add: protectedProcedure
       .input(z.object({
         sessionId: z.string(),
         value1Id: z.string(),
@@ -240,7 +231,7 @@ export const appRouter = router({
         return scenario;
       }),
 
-    updateChoice: publicProcedure
+    updateChoice: protectedProcedure
       .input(z.object({
         id: z.string(),
         selectedValueId: z.string(),
@@ -250,13 +241,13 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    getAll: publicProcedure
+    getAll: protectedProcedure
       .input(z.object({ sessionId: z.string() }))
       .query(async ({ input }) => {
         return await db.getScenarios(input.sessionId);
       }),
 
-    deleteAll: publicProcedure
+    deleteAll: protectedProcedure
       .input(z.object({ sessionId: z.string() }))
       .mutation(async ({ input }) => {
         await db.deleteScenariosForSession(input.sessionId);
@@ -265,7 +256,7 @@ export const appRouter = router({
   }),
 
   results: router({
-    save: publicProcedure
+    save: protectedProcedure
       .input(z.object({
         sessionId: z.string(),
         topValue1Id: z.string(),
@@ -291,20 +282,20 @@ export const appRouter = router({
         return result;
       }),
 
-    get: publicProcedure
+    get: protectedProcedure
       .input(z.object({ sessionId: z.string() }))
       .query(async ({ input }) => {
         return await db.getFinalResult(input.sessionId);
       }),
 
-    markGhlSent: publicProcedure
+    markGhlSent: protectedProcedure
       .input(z.object({ id: z.string() }))
       .mutation(async ({ input }) => {
         await db.updateFinalResult(input.id, { sentToGhl: true });
         return { success: true };
       }),
 
-    markEmailSent: publicProcedure
+    markEmailSent: protectedProcedure
       .input(z.object({ id: z.string() }))
       .mutation(async ({ input }) => {
         await db.updateFinalResult(input.id, { emailSent: true });

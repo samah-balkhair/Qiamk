@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import Footer from "@/components/Footer";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/_core/hooks/useAuth";
+// Authentication removed for public access
 import { toast } from "sonner";
 import { Trophy, Mail, CheckCircle2, Share2 } from "lucide-react";
 
@@ -15,9 +15,7 @@ export default function Results() {
   const [, setLocation] = useLocation();
   const searchParams = new URLSearchParams(window.location.search);
   const sessionId = searchParams.get("session");
-  const { user } = useAuth();
-
-  const [email, setEmail] = useState(user?.email || "");
+  const [email, setEmail] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);

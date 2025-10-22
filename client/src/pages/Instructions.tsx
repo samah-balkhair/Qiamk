@@ -4,8 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import Footer from "@/components/Footer";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
+// Authentication removed for public access
 import { 
   CheckCircle2, 
   ListChecks, 
@@ -18,21 +17,23 @@ import {
 
 export default function Instructions() {
   const [, setLocation] = useLocation();
-  const { user, isAuthenticated } = useAuth();
   const createSessionMutation = trpc.sessions.create.useMutation();
 
-  const handleStart = async () => {
-    if (!isAuthenticated) {
-      window.location.href = getLoginUrl();
-      return;
-    }
+  // Generate anonymous user ID for public access
+  const generateAnonymousUserId = () => {
+    return `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
 
+  const handleStart = async () => {
     try {
-      const session = await createSessionMutation.mutateAsync();
+      // Create session with anonymous user ID
+      const anonymousUserId = generateAnonymousUserId();
+      const session = await createSessionMutation.mutateAsync({ userId: anonymousUserId });
       window.scrollTo(0, 0);
       setLocation(`/select-values?session=${session.id}`);
     } catch (error) {
       console.error("Failed to create session:", error);
+      alert("حدث خطأ أثناء إنشاء الجلسة. يرجى المحاولة مرة أخرى.");
     }
   };
 
