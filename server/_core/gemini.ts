@@ -6,7 +6,7 @@ export async function generateWithGemini(prompt: string, systemInstruction?: str
   }
 
   // Use REST API directly with v1 (stable) instead of v1beta
-  const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${ENV.geminiApiKey}`;
+  const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${ENV.geminiApiKey}`;
   
   const requestBody = {
     contents: [
