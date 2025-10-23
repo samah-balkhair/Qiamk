@@ -362,7 +362,7 @@ export async function getTodayQuota() {
         id: `quota_${Date.now()}`,
         date: todayStr,
         scenariosGenerated: 0,
-        quotaLimit: 1500, // Gemini free tier limit
+        quotaLimit: 14400, // Groq free tier limit (30 requests/min * 60 min * 8 hours)
       };
       
       await db.insert(dailyQuota).values(newQuota);
@@ -416,7 +416,7 @@ export async function checkQuotaAvailable(): Promise<{ available: boolean; remai
   const quota = await getTodayQuota();
   
   if (!quota || quota.quotaLimit === undefined || quota.scenariosGenerated === undefined) {
-    return { available: false, remaining: 0, limit: 1500 };
+    return { available: false, remaining: 0, limit: 14400 };
   }
   
   const remaining = quota.quotaLimit - quota.scenariosGenerated;
