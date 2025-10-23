@@ -10,9 +10,9 @@ export default function Footer() {
             className="transition-opacity hover:opacity-80"
           >
             <img 
-              src="/logo.png" 
-              alt="Logo" 
-              className="h-12 w-auto mx-auto"
+              src="/personal-logo.png" 
+              alt="Samah Balkhair Logo" 
+              className="h-16 w-auto mx-auto"
             />
           </a>
           <p className="text-sm text-muted-foreground">@SamahBalkhair2025</p>
