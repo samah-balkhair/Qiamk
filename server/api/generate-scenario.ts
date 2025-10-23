@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { generateWithGemini } from "../_core/gemini";
+import { generateWithGroq } from "../_core/groq";
 
 export async function generateScenario(req: Request, res: Response) {
   try {
@@ -17,7 +17,7 @@ export async function generateScenario(req: Request, res: Response) {
 
     const systemInstruction = "أنت خبير في إنشاء سيناريوهات متطرفة تساعد الأشخاص على اكتشاف قيمهم الحقيقية. السيناريوهات يجب أن تكون واقعية، مؤثرة، وتجبر الشخص على اختيار قيمة واحدة فقط.";
     
-    const scenario = await generateWithGemini(prompt, systemInstruction);
+    const scenario = await generateWithGroq(prompt, systemInstruction);
 
     return res.json({ scenario });
   } catch (error) {
