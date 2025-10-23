@@ -99,9 +99,18 @@ export default function Results() {
   const handleShare = (platform: string) => {
     if (!top3Values || top3Values.length < 3) return;
 
-    const values = `${top3Values[0].valueName}، ${top3Values[1].valueName}، ${top3Values[2].valueName}`;
-    const text = `اكتشفت قيمي الحاكمة: ${values} اكتشف قيمك الآن من خلال مصفوفة القيم!`;
-    const url = window.location.origin;
+    const text = `💎 منصة قيمك — الأداة العملية لاكتشاف القيم الحاكمة في حياتك
+
+✨ اكتشفت قيمي الحاكمة 🎯
+1️⃣ ${top3Values[0].valueName}
+2️⃣ ${top3Values[1].valueName}
+3️⃣ ${top3Values[2].valueName} 😍
+
+تجربة ساعدتني أفهم أكثر ليش أتخذ قراراتي بهذه الطريقة
+وإيش فعلاً القيم اللي تمثلني وتوجّهني 🧭
+
+جرّبها أنت كمان واكتشف قيمك الحاكمة 👇`;
+    const url = "https://qiamk.com";
 
     let shareUrl = "";
 
