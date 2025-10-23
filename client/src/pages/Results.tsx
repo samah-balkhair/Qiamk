@@ -1,23 +1,19 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import Footer from "@/components/Footer";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 // Authentication removed for public access
 import { toast } from "sonner";
-import { Trophy, Mail, CheckCircle2, Share2 } from "lucide-react";
+import { Trophy, Share2 } from "lucide-react";
 
 export default function Results() {
   const [, setLocation] = useLocation();
   const searchParams = new URLSearchParams(window.location.search);
   const sessionId = searchParams.get("session");
-  const [email, setEmail] = useState("");
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
+  // Email functionality removed
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
 
   const { data: topValues } = trpc.values.getTopValues.useQuery(
@@ -31,7 +27,6 @@ export default function Results() {
   );
 
   const saveResultMutation = trpc.results.save.useMutation();
-  const markEmailSentMutation = trpc.results.markEmailSent.useMutation();
 
   // Calculate top 3 values based on final scores (or all available if less than 3)
   const top3Values = topValues
@@ -134,90 +129,7 @@ export default function Results() {
     }
   };
 
-  const handleSendEmail = async () => {
-    if (!email || !sessionId || !topValues || !allScenarios) {
-      toast.error("البيانات غير مكتملة");
-      return;
-    }
-
-    if (!top3Values || top3Values.length < 3) {
-      toast.error("يجب أن يكون لديك 3 قيم على الأقل");
-      return;
-    }
-
-    setIsSendingEmail(true);
-
-    try {
-      // 1. Send email report
-      const emailResponse = await fetch("/api/send-email-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          sessionId,
-          topValues: topValues.slice(0, 10),
-          scenarios: allScenarios,
-        }),
-      });
-
-      const emailData = await emailResponse.json();
-
-      if (!emailResponse.ok) {
-        console.error("Email API error:", emailData);
-        throw new Error(emailData.error || "Failed to send email");
-      }
-
-      console.log("Email sent successfully:", emailData);
-
-      // 2. Send to GoHighLevel
-      try {
-        const ghlResponse = await fetch("/api/send-to-ghl", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email,
-            value1: `${top3Values[0].valueName}: ${top3Values[0].definition}`,
-            value2: `${top3Values[1].valueName}: ${top3Values[1].definition}`,
-            value3: `${top3Values[2].valueName}: ${top3Values[2].definition}`,
-          }),
-        });
-
-        if (ghlResponse.ok) {
-          console.log("Successfully sent to GoHighLevel");
-        } else {
-          console.error("Failed to send to GoHighLevel");
-        }
-      } catch (ghlError) {
-        console.error("GoHighLevel error:", ghlError);
-        // Don't fail the whole process if GHL fails
-      }
-
-      // 3. Clean up session data (keep final results)
-      try {
-        const cleanupResponse = await fetch("/api/cleanup-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId }),
-        });
-        
-        if (cleanupResponse.ok) {
-          console.log("Session data cleaned up");
-        }
-      } catch (cleanupError) {
-        console.error("Cleanup error:", cleanupError);
-        // Don't fail if cleanup fails
-      }
-
-      setEmailSent(true);
-      toast.success("تم إرسال التقرير بنجاح!");
-    } catch (error: any) {
-      console.error("Failed to send email:", error);
-      const errorMessage = error.message || "حدث خطأ أثناء إرسال البريد الإلكتروني";
-      toast.error(errorMessage);
-    } finally {
-      setIsSendingEmail(false);
-    }
-  };
+  // Email functionality removed - cleanup will happen automatically on session completion
 
   if (!sessionId) {
     return (
@@ -293,48 +205,6 @@ export default function Results() {
               </Card>
             ))}
           </div>
-
-          {/* Email Report Section */}
-          <Card className="border-2 border-blue-200">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5 ml-2" />
-                احصل على التقرير التفصيلي
-              </CardTitle>
-              <CardDescription>
-                سنرسل لك تقريراً شاملاً يحتوي على قيمك العشرة الأوائل، جميع السيناريوهات، واختياراتك في كل جولة
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={emailSent}
-                />
-              </div>
-              
-              {emailSent ? (
-                <div className="flex items-center gap-2 text-green-600 bg-green-50 p-4 rounded-lg border border-green-200">
-                  <CheckCircle2 className="h-5 w-5" />
-                  <span>تم إرسال التقرير بنجاح!</span>
-                </div>
-              ) : (
-                <Button
-                  onClick={handleSendEmail}
-                  disabled={isSendingEmail || !email}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isSendingEmail ? "جاري الإرسال..." : "إرسال التقرير"}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Insights */}
           <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">

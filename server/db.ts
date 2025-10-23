@@ -429,3 +429,20 @@ export async function checkQuotaAvailable(): Promise<{ available: boolean; remai
   };
 }
 
+
+
+// Cleanup functions
+export async function deleteComparisonsForSession(sessionId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.delete(initialComparisons).where(eq(initialComparisons.sessionId, sessionId));
+}
+
+export async function deleteSessionValuesForSession(sessionId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.delete(selectedValues).where(eq(selectedValues.sessionId, sessionId));
+}
+

@@ -113,12 +113,12 @@ export default function DefineValues() {
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Header */}
           <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold text-slate-900">عرّف قيمك العشرة</h1>
+            <h1 className="text-4xl font-bold text-slate-900">عرّف قيمك</h1>
             <p className="text-lg text-slate-600">
-              اكتب تعريفاً شخصياً لكل قيمة من قيمك العشرة الأوائل
+              اكتب تعريفاً شخصياً لكل قيمة من قيمك الأوائل
             </p>
             <Badge variant={allDefined ? "default" : "secondary"} className="text-base px-4 py-1">
-              {allDefined ? "✓ جميع القيم معرّفة" : `${definedCount} من 10 معرّفة`}
+              {allDefined ? "✓ جميع القيم معرّفة" : `${definedCount} من ${topValues?.length || 0} معرّفة`}
             </Badge>
           </div>
 

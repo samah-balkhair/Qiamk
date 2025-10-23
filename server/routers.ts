@@ -289,8 +289,22 @@ export const appRouter = router({
           emailSent: false,
         });
         
-        // Mark session as completed
-        await db.updateSession(input.sessionId, { status: "completed" });
+        // Mark session as completed with timestamp
+        await db.updateSession(input.sessionId, { 
+          status: "completed",
+          completedAt: new Date()
+        });
+        
+        // Cleanup session data (keep only finalResults)
+        try {
+          await db.deleteComparisonsForSession(input.sessionId);
+          await db.deleteScenariosForSession(input.sessionId);
+          await db.deleteSessionValuesForSession(input.sessionId);
+          // Note: Session record is kept for analytics but marked as completed
+        } catch (cleanupError) {
+          console.error('Error cleaning up session data:', cleanupError);
+          // Don't fail the whole operation if cleanup fails
+        }
         
         return result;
       }),

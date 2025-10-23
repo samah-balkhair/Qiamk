@@ -34,7 +34,9 @@ export async function generateWithGroq(prompt: string, systemInstruction?: strin
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${ENV.groqApiKey}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
+        'Accept': 'application/json',
+        'Accept-Charset': 'utf-8',
       },
       body: JSON.stringify(requestBody),
     });
