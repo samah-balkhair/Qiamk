@@ -288,6 +288,10 @@ export const appRouter = router({
           sentToGhl: false,
           emailSent: false,
         });
+        
+        // Mark session as completed
+        await db.updateSession(input.sessionId, { status: "completed" });
+        
         return result;
       }),
 
